@@ -7,7 +7,6 @@ import com.example.ragdemo.service.MallChatService;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,7 +18,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/mall/chat")
-@ConditionalOnProperty(name = "app.image-rag.enabled", havingValue = "true", matchIfMissing = true)
 public class MallChatController {
 
     private final MallChatService mallChatService;

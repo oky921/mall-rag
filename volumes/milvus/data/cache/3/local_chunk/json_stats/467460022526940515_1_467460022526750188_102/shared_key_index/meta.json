@@ -1,0 +1,42 @@
+{
+  "index_settings": {
+    "docstore_compression": "lz4",
+    "docstore_blocksize": 16384
+  },
+  "segments": [
+    {
+      "segment_id": "e772721f-49b2-4688-987b-ff979eb6577c",
+      "max_doc": 40,
+      "deletes": null
+    }
+  ],
+  "schema": [
+    {
+      "user_specified_doc_id": false
+    },
+    {
+      "name": "102_shared",
+      "type": "text",
+      "options": {
+        "indexing": {
+          "record": "basic",
+          "fieldnorms": false,
+          "tokenizer": "raw"
+        },
+        "stored": false,
+        "fast": false
+      }
+    },
+    {
+      "name": "doc_id",
+      "type": "i64",
+      "options": {
+        "indexed": false,
+        "fieldnorms": false,
+        "fast": true,
+        "stored": false
+      }
+    }
+  ],
+  "opstamp": 41
+}

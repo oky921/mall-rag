@@ -39,7 +39,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 @Service
-@ConditionalOnProperty(name = "app.image-rag.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "app.image-rag.enabled", havingValue = "true")
 public class ImageRagService {
 
     private static final int DEFAULT_TOP_K = 8;

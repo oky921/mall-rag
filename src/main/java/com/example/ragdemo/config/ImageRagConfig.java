@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.util.StringUtils;
 
 @Configuration
-@ConditionalOnProperty(name = "app.image-rag.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "app.image-rag.enabled", havingValue = "true")
 public class ImageRagConfig {
 
     @Bean
@@ -23,7 +23,7 @@ public class ImageRagConfig {
     @Bean(destroyMethod = "close")
     public MilvusClientV2 imageRagMilvusClient(
             @Value("${app.image-rag.milvus.uri:}") String uri,
-            @Value("${spring.ai.vectorstore.milvus.client.host:localhost}") String host,
+            @Value("${spring.ai.vectorstore.milvus.client.host:127.0.0.1}") String host,
             @Value("${spring.ai.vectorstore.milvus.client.port:19530}") int port,
             @Value("${app.image-rag.milvus.database:${spring.ai.vectorstore.milvus.database-name:default}}") String database,
             @Value("${app.image-rag.milvus.token:}") String token) {

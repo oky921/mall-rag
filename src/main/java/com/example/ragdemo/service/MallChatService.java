@@ -1,5 +1,7 @@
 package com.example.ragdemo.service;
 
+import com.example.ragdemo.dto.ChatRequest;
+import com.example.ragdemo.dto.ChatResponse;
 import com.example.ragdemo.dto.MallChatRequest;
 import com.example.ragdemo.dto.MallChatResponse;
 import com.example.ragdemo.dto.MallImageSearchRequest;
@@ -7,29 +9,33 @@ import com.example.ragdemo.dto.MallImageSearchResult;
 import com.example.ragdemo.dto.MallImageSearchResponse;
 import com.example.ragdemo.dto.RagChatResponse;
 import com.example.ragdemo.dto.RagQueryRequest;
+import com.example.ragdemo.exception.AiServiceException;
 import com.example.ragdemo.exception.BadRequestException;
 import java.util.List;
 import java.util.Locale;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 @Service
-@ConditionalOnProperty(name = "app.image-rag.enabled", havingValue = "true", matchIfMissing = true)
 public class MallChatService {
 
     private static final int DEFAULT_TOP_K = 5;
 
     private static final double MIN_VISIBLE_SCORE = 0.4;
 
-    private final ImageRagService imageRagService;
+    private final ObjectProvider<ImageRagService> imageRagServiceProvider;
 
     private final ObjectProvider<RagService> ragServiceProvider;
 
-    public MallChatService(ImageRagService imageRagService, ObjectProvider<RagService> ragServiceProvider) {
-        this.imageRagService = imageRagService;
+    private final ObjectProvider<ChatService> chatServiceProvider;
+
+    public MallChatService(ObjectProvider<ImageRagService> imageRagServiceProvider,
+            ObjectProvider<RagService> ragServiceProvider,
+            ObjectProvider<ChatService> chatServiceProvider) {
+        this.imageRagServiceProvider = imageRagServiceProvider;
         this.ragServiceProvider = ragServiceProvider;
+        this.chatServiceProvider = chatServiceProvider;
     }
 
     public MallChatResponse chat(MallChatRequest request) {
@@ -48,7 +54,10 @@ public class MallChatService {
         MallImageSearchRequest searchRequest = new MallImageSearchRequest();
         searchRequest.setImageUrl(imagePath.trim());
         searchRequest.setTopK(topK == null ? DEFAULT_TOP_K : topK);
-        MallImageSearchResponse searchResponse = imageRagService.search(searchRequest);
+        MallImageSearchResponse searchResponse = searchImagesOrNull(searchRequest);
+        if (searchResponse == null) {
+            return imageRagUnavailableResponse();
+        }
         List<MallImageSearchResult> visibleResults = visibleResults(searchResponse.getResults());
         String answer = buildImageUploadAnswer(normalizeOptionalMessage(message), visibleResults);
         return MallChatResponse.imageSearch(answer, visibleResults);
@@ -58,7 +67,10 @@ public class MallChatService {
         MallImageSearchRequest searchRequest = new MallImageSearchRequest();
         searchRequest.setQuery(toProductSearchQuery(message));
         searchRequest.setTopK(topK);
-        MallImageSearchResponse searchResponse = imageRagService.search(searchRequest);
+        MallImageSearchResponse searchResponse = searchImagesOrNull(searchRequest);
+        if (searchResponse == null) {
+            return imageRagUnavailableResponse();
+        }
         List<MallImageSearchResult> visibleResults = visibleResults(searchResponse.getResults());
         String answer = buildTextProductSearchAnswer(visibleResults);
         return MallChatResponse.imageSearch(answer, visibleResults);
@@ -67,8 +79,7 @@ public class MallChatService {
     private MallChatResponse ragOrPlain(MallChatRequest request, String message) {
         RagService ragService = ragServiceProvider.getIfAvailable();
         if (ragService == null) {
-            return MallChatResponse.plain(
-                    "\u6211\u53ef\u4ee5\u5e2e\u4f60\u68c0\u7d22\u5546\u54c1\u3002\u4f60\u53ef\u4ee5\u8bf4\uff1a\u7ed9\u6211\u627e\u624b\u673a\u3001\u627e\u4e00\u4ef6\u51ac\u5929\u5916\u5957\uff0c\u6216\u8005\u4e0a\u4f20\u7167\u7247\u627e\u76f8\u4f3c\u5546\u54c1\u3002");
+            return plainChat(message);
         }
 
         RagQueryRequest ragRequest = new RagQueryRequest();
@@ -77,6 +88,35 @@ public class MallChatService {
         ragRequest.setHistory(request == null ? null : request.getHistory());
         RagChatResponse response = ragService.chat(ragRequest);
         return MallChatResponse.rag(response.getContent(), response.getSources(), response.isUsedKnowledgeBase());
+    }
+
+    private MallImageSearchResponse searchImagesOrNull(MallImageSearchRequest request) {
+        ImageRagService imageRagService = imageRagServiceProvider.getIfAvailable();
+        if (imageRagService == null) {
+            return null;
+        }
+        try {
+            return imageRagService.search(request);
+        } catch (AiServiceException ex) {
+            return null;
+        }
+    }
+
+    private MallChatResponse imageRagUnavailableResponse() {
+        return MallChatResponse.plain(
+                "\u5546\u54c1\u5411\u91cf\u68c0\u7d22\u670d\u52a1\u6682\u65f6\u4e0d\u53ef\u7528\uff1a\u8bf7\u786e\u8ba4\u5df2\u8bbe\u7f6e APP_IMAGE_RAG_ENABLED=true\uff0c\u5e76\u4e14 Milvus \u5bb9\u5668 milvus-standalone \u6b63\u5728\u8fd0\u884c\u3002\u666e\u901a\u804a\u5929\u548c\u6587\u672c\u77e5\u8bc6\u5e93\u95ee\u7b54\u4ecd\u53ef\u4f7f\u7528\u3002");
+    }
+
+    private MallChatResponse plainChat(String message) {
+        ChatService chatService = chatServiceProvider.getIfAvailable();
+        if (chatService == null) {
+            return MallChatResponse.plain(
+                    "\u6211\u53ef\u4ee5\u5e2e\u4f60\u8fdb\u884c\u666e\u901a\u5bf9\u8bdd\uff0c\u4e5f\u53ef\u4ee5\u5728\u5411\u91cf\u5e93\u542f\u7528\u540e\u8fdb\u884c\u77e5\u8bc6\u5e93\u95ee\u7b54\u548c\u5546\u54c1\u68c0\u7d22\u3002");
+        }
+        ChatRequest chatRequest = new ChatRequest();
+        chatRequest.setMessage(message);
+        ChatResponse response = chatService.chat(chatRequest);
+        return MallChatResponse.plain(response.getContent());
     }
 
     private String buildTextProductSearchAnswer(List<MallImageSearchResult> results) {

@@ -24,10 +24,10 @@ spring:
         model: ${app.ai.embedding-model}
         dimensions: ${app.ai.embedding-dimensions}
     vectorstore:
-      type: ${APP_VECTORSTORE_TYPE:none}
+      type: ${APP_VECTORSTORE_TYPE:milvus}
       milvus:
         client:
-          host: ${MILVUS_HOST:localhost}
+          host: ${MILVUS_HOST:127.0.0.1}
           port: ${MILVUS_PORT:19530}
         database-name: ${MILVUS_DATABASE:default}
         collection-name: ${MILVUS_COLLECTION:first_rag_docs_utf8}
@@ -100,11 +100,11 @@ app:
   rag:
     max-distance: ${APP_RAG_MAX_DISTANCE:0.35}
   image-rag:
-    enabled: ${APP_IMAGE_RAG_ENABLED:true}
+    enabled: ${APP_IMAGE_RAG_ENABLED:false}
     api-key: ${DASHSCOPE_API_KEY:${app.ai.api-key}}
     model: ${DASHSCOPE_MULTIMODAL_EMBEDDING_MODEL:qwen3-vl-embedding}
     milvus:
-      uri: ${APP_IMAGE_RAG_MILVUS_URI:}
+      uri: ${APP_IMAGE_RAG_MILVUS_URI:http://${spring.ai.vectorstore.milvus.client.host}:${spring.ai.vectorstore.milvus.client.port}}
       database: ${APP_IMAGE_RAG_MILVUS_DATABASE:${spring.ai.vectorstore.milvus.database-name}}
       collection: ${APP_IMAGE_RAG_MILVUS_COLLECTION:mall_product_images}
       token: ${APP_IMAGE_RAG_MILVUS_TOKEN:}

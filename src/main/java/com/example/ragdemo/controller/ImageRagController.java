@@ -27,7 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/mall/images")
-@ConditionalOnProperty(name = "app.image-rag.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "app.image-rag.enabled", havingValue = "true")
 public class ImageRagController {
 
     private final ImageRagService imageRagService;
