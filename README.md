@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # spring-ai-rag-demo
 
 这是一个第一阶段的 Spring Boot + Spring AI 后端项目，只完成：
@@ -128,3 +129,6 @@ npm run dev
 前端默认地址：`http://localhost:5173`
 
 Vite 会把 `/api` 请求代理到后端 `http://localhost:8080`。
+=======
+# mall-rag
+>>>>>>> 17032c55a0d67c2d2ed4411247f76c1ca11a1909
