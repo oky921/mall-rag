@@ -1,6 +1,7 @@
 # FirstRag
 
 FirstRag 是一个基于 Spring Boot 4、Spring AI 2 和 Milvus 的 RAG（检索增强生成）示例项目，旨在演示如何将大模型、向量数据库和业务数据结合起来，构建可扩展的智能问答与商品搜索体验。
+<img width="1890" height="892" alt="image" src="https://github.com/user-attachments/assets/6b00d2fc-d707-4568-8695-9528215148d0" />
 
 ## 项目简介
 
