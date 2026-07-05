@@ -1,0 +1,134 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: spring-ai-rag-demo
+  data:
+    redis:
+      url: ${APP_REDIS_URL:${APP_RATELIMIT_REDIS_ADDRESS:redis://localhost:6379}}
+      database: ${APP_REDIS_DATABASE:${APP_RATELIMIT_REDIS_DATABASE:0}}
+  ai:
+    model:
+      chat: openai
+      embedding: openai
+    openai:
+      base-url: ${app.ai.base-url}
+      api-key: ${app.ai.api-key}
+      chat:
+        model: ${app.ai.model}
+        temperature: 0.7
+        extra-body:
+          enable_thinking: true
+      embedding:
+        model: ${app.ai.embedding-model}
+        dimensions: ${app.ai.embedding-dimensions}
+    vectorstore:
+      type: ${APP_VECTORSTORE_TYPE:none}
+      milvus:
+        client:
+          host: ${MILVUS_HOST:localhost}
+          port: ${MILVUS_PORT:19530}
+        database-name: ${MILVUS_DATABASE:default}
+        collection-name: ${MILVUS_COLLECTION:first_rag_docs_utf8}
+        embedding-dimension: ${MILVUS_EMBEDDING_DIMENSION:${app.ai.embedding-dimensions}}
+        initialize-schema: true
+
+app:
+  ai:
+    provider: aliyun-bailian
+    base-url: ${DASHSCOPE_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+    api-key: ${DASHSCOPE_API_KEY:todo-replace-with-your-api-key}
+    model: ${DASHSCOPE_MODEL:qwen3.7-max}
+    embedding-model: ${DASHSCOPE_EMBEDDING_MODEL:text-embedding-v4}
+    embedding-dimensions: ${DASHSCOPE_EMBEDDING_DIMENSIONS:1024}
+    routing:
+      chat:
+        enabled: true
+        candidates:
+          - name: chat-primary
+            enabled: true
+            provider: ${APP_AI_CHAT_PROVIDER:${app.ai.provider}}
+            base-url: ${APP_AI_CHAT_BASE_URL:${app.ai.base-url}}
+            api-key: ${APP_AI_CHAT_API_KEY:${app.ai.api-key}}
+            model: ${APP_AI_CHAT_MODEL:${app.ai.model}}
+            priority: ${APP_AI_CHAT_PRIORITY:100}
+            failure-threshold: ${APP_AI_CHAT_FAILURE_THRESHOLD:3}
+            open-duration: ${APP_AI_CHAT_OPEN_DURATION:30s}
+          - name: chat-qwen35-plus
+            enabled: ${APP_AI_CHAT_QWEN35_ENABLED:true}
+            provider: dashscope-native
+            base-url: ${DASHSCOPE_MULTIMODAL_BASE_URL:https://ws-dbq1nlrkypac2cm7.cn-beijing.maas.aliyuncs.com/api/v1}
+            api-key: ${APP_AI_CHAT_QWEN35_API_KEY:${app.ai.api-key}}
+            model: ${APP_AI_CHAT_QWEN35_MODEL:qwen3.5-plus}
+            priority: ${APP_AI_CHAT_QWEN35_PRIORITY:200}
+            failure-threshold: ${APP_AI_CHAT_QWEN35_FAILURE_THRESHOLD:3}
+            open-duration: ${APP_AI_CHAT_QWEN35_OPEN_DURATION:30s}
+      embedding:
+        enabled: true
+        candidates:
+          - name: embedding-primary
+            enabled: true
+            provider: ${APP_AI_EMBEDDING_PROVIDER:${app.ai.provider}}
+            base-url: ${APP_AI_EMBEDDING_BASE_URL:${app.ai.base-url}}
+            api-key: ${APP_AI_EMBEDDING_API_KEY:${app.ai.api-key}}
+            model: ${APP_AI_EMBEDDING_MODEL:${app.ai.embedding-model}}
+            dimensions: ${APP_AI_EMBEDDING_DIMENSIONS:${app.ai.embedding-dimensions}}
+            priority: ${APP_AI_EMBEDDING_PRIORITY:100}
+            failure-threshold: ${APP_AI_EMBEDDING_FAILURE_THRESHOLD:3}
+            open-duration: ${APP_AI_EMBEDDING_OPEN_DURATION:30s}
+          - name: embedding-text-v3
+            enabled: ${APP_AI_EMBEDDING_V3_ENABLED:true}
+            provider: dashscope-native
+            base-url: ${DASHSCOPE_EMBEDDING_BASE_URL:https://dashscope.aliyuncs.com/api/v1}
+            api-key: ${APP_AI_EMBEDDING_V3_API_KEY:${app.ai.api-key}}
+            model: ${APP_AI_EMBEDDING_V3_MODEL:text-embedding-v3}
+            dimensions: ${APP_AI_EMBEDDING_V3_DIMENSIONS:1024}
+            priority: ${APP_AI_EMBEDDING_V3_PRIORITY:200}
+            failure-threshold: ${APP_AI_EMBEDDING_V3_FAILURE_THRESHOLD:3}
+            open-duration: ${APP_AI_EMBEDDING_V3_OPEN_DURATION:30s}
+      rerank:
+        enabled: true
+        candidates:
+          - name: rerank-pass-through
+            enabled: true
+            provider: ${APP_AI_RERANK_PROVIDER:noop}
+            model: ${APP_AI_RERANK_MODEL:builtin-pass-through}
+            priority: ${APP_AI_RERANK_PRIORITY:1000}
+            failure-threshold: ${APP_AI_RERANK_FAILURE_THRESHOLD:3}
+            open-duration: ${APP_AI_RERANK_OPEN_DURATION:15s}
+  rag:
+    max-distance: ${APP_RAG_MAX_DISTANCE:0.35}
+  image-rag:
+    enabled: ${APP_IMAGE_RAG_ENABLED:true}
+    api-key: ${DASHSCOPE_API_KEY:${app.ai.api-key}}
+    model: ${DASHSCOPE_MULTIMODAL_EMBEDDING_MODEL:qwen3-vl-embedding}
+    milvus:
+      uri: ${APP_IMAGE_RAG_MILVUS_URI:}
+      database: ${APP_IMAGE_RAG_MILVUS_DATABASE:${spring.ai.vectorstore.milvus.database-name}}
+      collection: ${APP_IMAGE_RAG_MILVUS_COLLECTION:mall_product_images}
+      token: ${APP_IMAGE_RAG_MILVUS_TOKEN:}
+  ratelimit:
+    enabled: ${APP_RATELIMIT_ENABLED:true}
+    key-prefix: ${APP_RATELIMIT_KEY_PREFIX:ratelimit}
+    redis-address: ${APP_RATELIMIT_REDIS_ADDRESS:redis://localhost:6379}
+    redis-password: ${APP_RATELIMIT_REDIS_PASSWORD:}
+    redis-database: ${APP_RATELIMIT_REDIS_DATABASE:0}
+    owner-id: ${APP_RATELIMIT_OWNER_ID:${spring.application.name}}
+    defaults:
+      max-concurrent: ${APP_RATELIMIT_MAX_CONCURRENT:2}
+      wait-timeout: ${APP_RATELIMIT_WAIT_TIMEOUT:30s}
+      permit-ttl: ${APP_RATELIMIT_PERMIT_TTL:5m}
+      request-ttl: ${APP_RATELIMIT_REQUEST_TTL:10m}
+      pub-sub-wait: ${APP_RATELIMIT_PUB_SUB_WAIT:500ms}
+      cleanup-interval: ${APP_RATELIMIT_CLEANUP_INTERVAL:10s}
+      cleanup-batch-size: ${APP_RATELIMIT_CLEANUP_BATCH_SIZE:64}
+    policies:
+      chat:
+        max-concurrent: ${APP_RATELIMIT_CHAT_MAX_CONCURRENT:2}
+      rag:
+        max-concurrent: ${APP_RATELIMIT_RAG_MAX_CONCURRENT:1}
+
+logging:
+  level:
+    com.example.ragdemo: INFO

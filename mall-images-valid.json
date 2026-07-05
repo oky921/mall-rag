@@ -1,0 +1,119 @@
+{
+  "images": [
+    {
+      "image_url": "C:/Users/22879/Desktop/product/images/phion16.jpg",
+      "product_id": "P10001",
+      "sku_id": "P10001-phone-16",
+      "title": "Phone product image 16",
+      "link": "/products/P10001",
+      "metadata": {
+        "category": "phone",
+        "brand": "Apple",
+        "keywords": "phone apple iphone product photo digital"
+      }
+    },
+    {
+      "image_url": "C:/Users/22879/Desktop/product/images/phion17.jpg",
+      "product_id": "P10002",
+      "sku_id": "P10002-phone-17",
+      "title": "Phone product image 17",
+      "link": "/products/P10002",
+      "metadata": {
+        "category": "phone",
+        "brand": "Apple",
+        "keywords": "phone apple iphone product photo digital"
+      }
+    },
+    {
+      "image_url": "C:/Users/22879/Desktop/product/images/\u624b\u673a.jpeg",
+      "product_id": "P10003",
+      "sku_id": "P10003-phone",
+      "title": "Phone product image",
+      "link": "/products/P10003",
+      "metadata": {
+        "category": "phone",
+        "keywords": "phone smartphone digital product image"
+      }
+    },
+    {
+      "image_url": "C:/Users/22879/Desktop/product/images/\u7fbd\u7ed2\u670d.jpeg",
+      "product_id": "C10001",
+      "sku_id": "C10001-down-jacket",
+      "title": "Down jacket product image",
+      "link": "/products/C10001",
+      "metadata": {
+        "category": "clothes",
+        "type": "down_jacket",
+        "keywords": "down jacket coat winter warm clothes"
+      }
+    },
+    {
+      "image_url": "C:/Users/22879/Desktop/product/images/\u8863\u670d.webp",
+      "product_id": "C10002",
+      "sku_id": "C10002-clothes",
+      "title": "Clothes product image",
+      "link": "/products/C10002",
+      "metadata": {
+        "category": "clothes",
+        "keywords": "clothes jacket outfit fashion"
+      }
+    },
+    {
+      "image_url": "C:/Users/22879/Desktop/product/images/\u88d9\u5b50.jpeg",
+      "product_id": "C10003",
+      "sku_id": "C10003-dress",
+      "title": "Dress product image",
+      "link": "/products/C10003",
+      "metadata": {
+        "category": "clothes",
+        "type": "dress",
+        "keywords": "dress skirt womenswear spring summer"
+      }
+    },
+    {
+      "image_url": "C:/Users/22879/Desktop/product/images/\u4fdd\u6e7f\u971c.jpeg",
+      "product_id": "B10001",
+      "sku_id": "B10001-cream",
+      "title": "Moisturizing cream product image",
+      "link": "/products/B10001",
+      "metadata": {
+        "category": "cosmetics",
+        "type": "skincare",
+        "keywords": "moisturizing cream face cream skincare cosmetics"
+      }
+    },
+    {
+      "image_url": "C:/Users/22879/Desktop/product/images/\u5316\u5986\u54c1.jpeg",
+      "product_id": "B10002",
+      "sku_id": "B10002-cosmetic",
+      "title": "Cosmetics product image",
+      "link": "/products/B10002",
+      "metadata": {
+        "category": "cosmetics",
+        "keywords": "cosmetics makeup skincare beauty"
+      }
+    },
+    {
+      "image_url": "C:/Users/22879/Desktop/product/images/\u5316\u5986\u54c1.webp",
+      "product_id": "B10003",
+      "sku_id": "B10003-cosmetic",
+      "title": "Cosmetics product image webp",
+      "link": "/products/B10003",
+      "metadata": {
+        "category": "cosmetics",
+        "keywords": "cosmetics beauty makeup product image"
+      }
+    },
+    {
+      "image_url": "C:/Users/22879/Desktop/product/images/\u5316\u5986\u54c11.webp",
+      "product_id": "B10004",
+      "sku_id": "B10004-cosmetic-set",
+      "title": "Cosmetics set product image",
+      "link": "/products/B10004",
+      "metadata": {
+        "category": "cosmetics",
+        "keywords": "cosmetics set beauty skincare makeup"
+      }
+    }
+  ]
+}

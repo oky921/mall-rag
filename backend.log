@@ -1,0 +1,21 @@
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v4.1.0)
+
+2026-07-02T19:40:15.186+08:00  INFO 10804 --- [spring-ai-rag-demo] [           main] c.e.ragdemo.SpringAiRagDemoApplication   : Starting SpringAiRagDemoApplication v0.0.1-SNAPSHOT using Java 21.0.11 with PID 10804 (D:\downfile\FirstRag\target\spring-ai-rag-demo-0.0.1-SNAPSHOT.jar started by 22879 in D:\downfile\FirstRag)
+2026-07-02T19:40:15.196+08:00  INFO 10804 --- [spring-ai-rag-demo] [           main] c.e.ragdemo.SpringAiRagDemoApplication   : No active profile set, falling back to 1 default profile: "default"
+2026-07-02T19:40:17.034+08:00  INFO 10804 --- [spring-ai-rag-demo] [           main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
+2026-07-02T19:40:17.063+08:00  INFO 10804 --- [spring-ai-rag-demo] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-07-02T19:40:17.064+08:00  INFO 10804 --- [spring-ai-rag-demo] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-02T19:40:17.139+08:00  INFO 10804 --- [spring-ai-rag-demo] [           main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 1829 ms
+2026-07-02T19:40:19.007+08:00  INFO 10804 --- [spring-ai-rag-demo] [           main] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8080 (http) with context path '/'
+2026-07-02T19:40:19.037+08:00  INFO 10804 --- [spring-ai-rag-demo] [           main] c.e.ragdemo.SpringAiRagDemoApplication   : Started SpringAiRagDemoApplication in 4.614 seconds (process running for 5.78)
+2026-07-02T19:40:39.178+08:00  INFO 10804 --- [spring-ai-rag-demo] [nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-07-02T19:40:39.178+08:00  INFO 10804 --- [spring-ai-rag-demo] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-07-02T19:40:39.181+08:00  INFO 10804 --- [spring-ai-rag-demo] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 2 ms
