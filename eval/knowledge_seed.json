@@ -1,0 +1,276 @@
+{
+  "documents": [
+    {
+      "content": "FirstRag 是一个基于 Spring Boot、Spring AI 和 Milvus 的 RAG 示例项目。它把大模型、向量数据库和业务数据结合起来，提供智能问答、知识库检索和商品推荐能力。",
+      "source": "eval-seed",
+      "type": "project",
+      "title": "FirstRag 项目介绍",
+      "metadata": {
+        "category": "project",
+        "tags": "spring-ai,rag,milvus"
+      }
+    },
+    {
+      "content": "Milvus 在 FirstRag 中用于存储文本和图片的向量表示，并根据用户问题进行相似度检索。RAG 服务会从 Milvus 取回相关片段，再把这些片段作为上下文交给大模型生成回答。",
+      "source": "eval-seed",
+      "type": "architecture",
+      "title": "Milvus 的作用",
+      "metadata": {
+        "category": "vector-store",
+        "tags": "milvus,vector-search,retrieval"
+      }
+    },
+    {
+      "content": "FirstRag 的文本 RAG 流程包括：通过 /api/rag/documents 或 /api/rag/documents/batch 导入文档，系统生成向量并写入 Milvus；用户通过 /api/rag/search 检索相关内容，或通过 /api/rag/chat 获取带知识库上下文的生成回答。",
+      "source": "eval-seed",
+      "type": "api",
+      "title": "文本 RAG 接口流程",
+      "metadata": {
+        "category": "api",
+        "tags": "documents,batch,search,chat"
+      }
+    },
+    {
+      "content": "FirstRag 的 /api/rag/chat 接口会返回 content、sources 和 usedKnowledgeBase。content 是模型生成的回答，sources 是检索到的知识库片段，usedKnowledgeBase 表示本次回答是否使用了知识库上下文。",
+      "source": "eval-seed",
+      "type": "api",
+      "title": "RAG Chat 响应字段",
+      "metadata": {
+        "category": "api",
+        "tags": "chat,response,sources"
+      }
+    },
+    {
+      "content": "FirstRag 支持的主要商品分类包括数码类商品、服饰鞋包、美妆个护、家居生活、食品母婴。系统可以根据用户的自然语言需求检索相关商品并给出推荐。",
+      "source": "eval-seed",
+      "type": "mall",
+      "title": "商品分类总览",
+      "metadata": {
+        "category": "mall",
+        "tags": "category,recommendation"
+      }
+    },
+    {
+      "content": "P10001 是 Aster 品牌的一款蓝色智能手机，价格 2999 元，属于数码类商品。它配备高清 OLED 屏幕、长续航电池和 128GB 存储，适合需要轻薄机身、日常拍照和稳定续航的用户。",
+      "source": "eval-seed",
+      "type": "product",
+      "title": "蓝色智能手机 P10001",
+      "product_id": "P10001",
+      "link": "https://example.com/products/P10001",
+      "metadata": {
+        "category": "digital",
+        "color": "blue",
+        "price": 2999,
+        "brand": "Aster"
+      }
+    },
+    {
+      "content": "P10002 是 NorthBook 品牌的一款黑色商务笔记本电脑，价格 5299 元，属于数码类商品。它拥有 14 英寸屏幕、16GB 内存、512GB SSD 和较轻机身，适合办公、学习和出差携带。",
+      "source": "eval-seed",
+      "type": "product",
+      "title": "黑色商务笔记本 P10002",
+      "product_id": "P10002",
+      "link": "https://example.com/products/P10002",
+      "metadata": {
+        "category": "digital",
+        "color": "black",
+        "price": 5299,
+        "brand": "NorthBook"
+      }
+    },
+    {
+      "content": "P10003 是 SoundLite 品牌的一款白色无线降噪耳机，价格 699 元，属于数码类商品。它支持主动降噪、通透模式和 30 小时综合续航，适合通勤、运动和日常听音乐。",
+      "source": "eval-seed",
+      "type": "product",
+      "title": "白色无线降噪耳机 P10003",
+      "product_id": "P10003",
+      "link": "https://example.com/products/P10003",
+      "metadata": {
+        "category": "digital",
+        "color": "white",
+        "price": 699,
+        "brand": "SoundLite"
+      }
+    },
+    {
+      "content": "P20001 是一件黄色轻薄羽绒服，价格 399 元，属于服饰鞋包类商品，适合秋冬季节。它采用防风面料和轻量填充，适合秋冬通勤、旅行和户外轻运动。",
+      "source": "eval-seed",
+      "type": "product",
+      "title": "黄色轻薄羽绒服 P20001",
+      "product_id": "P20001",
+      "link": "https://example.com/products/P20001",
+      "metadata": {
+        "category": "clothing",
+        "color": "yellow",
+        "price": 399,
+        "season": "winter"
+      }
+    },
+    {
+      "content": "P20002 是一双白色休闲运动鞋，价格 269 元，属于服饰鞋包类商品，四季均可穿着。鞋面透气，鞋底轻弹，适合日常通勤、步行和轻量运动。",
+      "source": "eval-seed",
+      "type": "product",
+      "title": "白色休闲运动鞋 P20002",
+      "product_id": "P20002",
+      "link": "https://example.com/products/P20002",
+      "metadata": {
+        "category": "shoes",
+        "color": "white",
+        "price": 269,
+        "season": "all"
+      }
+    },
+    {
+      "content": "P30001 是一套保湿护肤套装，价格 199 元，属于美妆个护类商品。套装包含洁面、爽肤水和保湿乳，主打补水保湿，适合干性和混合性肌肤日常护理。",
+      "source": "eval-seed",
+      "type": "product",
+      "title": "保湿护肤套装 P30001",
+      "product_id": "P30001",
+      "link": "https://example.com/products/P30001",
+      "metadata": {
+        "category": "beauty",
+        "price": 199,
+        "effect": "moisturizing"
+      }
+    },
+    {
+      "content": "P30002 是一支持久哑光口红，价格 89 元，属于美妆个护类商品。它显色度高，妆效偏哑光，适合通勤、约会和正式场合使用。",
+      "source": "eval-seed",
+      "type": "product",
+      "title": "持久哑光口红 P30002",
+      "product_id": "P30002",
+      "link": "https://example.com/products/P30002",
+      "metadata": {
+        "category": "beauty",
+        "price": 89,
+        "effect": "makeup"
+      }
+    },
+    {
+      "content": "P40001 是一盏智能护眼台灯，价格 159 元，属于家居生活类商品。它支持亮度调节、色温切换和定时关闭，适合学生学习、办公桌面和夜间阅读。",
+      "source": "eval-seed",
+      "type": "product",
+      "title": "智能护眼台灯 P40001",
+      "product_id": "P40001",
+      "link": "https://example.com/products/P40001",
+      "metadata": {
+        "category": "home",
+        "price": 159,
+        "scene": "study"
+      }
+    },
+    {
+      "content": "P50001 是一款婴儿湿巾组合装，价格 49 元，属于食品母婴类商品。它无酒精、柔软亲肤，适合婴儿日常清洁、外出携带和家庭囤货。",
+      "source": "eval-seed",
+      "type": "product",
+      "title": "婴儿湿巾组合装 P50001",
+      "product_id": "P50001",
+      "link": "https://example.com/products/P50001",
+      "metadata": {
+        "category": "baby",
+        "price": 49,
+        "scene": "cleaning"
+      }
+    },
+    {
+      "content": "如果用户询问汽车保险、房产中介、医疗诊断或法律代理等不属于当前商品知识库的内容，FirstRag 应基于知识库范围说明没有相关商品或无法从当前知识库确认，而不是编造不存在的商品。",
+      "source": "eval-seed",
+      "type": "policy",
+      "title": "知识库范围外问题处理",
+      "metadata": {
+        "category": "safety",
+        "tags": "out-of-scope,grounding"
+      }
+    },
+    {
+      "content": "文本知识可以通过 POST /api/rag/documents 导入单条文档，也可以通过 POST /api/rag/documents/batch 批量导入。批量请求使用 documents 数组包装文档；由于当前 Embedding 服务单次最多处理 10 条文本，客户端或服务端应将更大的数据集拆成每批不超过 10 条。",
+      "source": "eval-seed",
+      "type": "api",
+      "title": "文档批量导入限制",
+      "metadata": {
+        "category": "api",
+        "tags": "documents,batch,embedding,limit"
+      }
+    },
+    {
+      "content": "知识文档的核心字段是 content，表示需要向量化和检索的正文。source 用于标识数据来源，type 用于区分项目说明、接口、商品或策略，title 是可读标题。商品文档还可以提供 product_id、link 和 metadata；metadata 可保存 category、price、color、scene 等过滤属性。",
+      "source": "eval-seed",
+      "type": "schema",
+      "title": "知识文档字段说明",
+      "metadata": {
+        "category": "data-format",
+        "tags": "content,metadata,product-id,source"
+      }
+    },
+    {
+      "content": "调用 /api/rag/search 可以进行知识库相似度检索。系统将查询文本生成向量，在 Milvus 中查找语义最接近的文档片段，并返回可作为回答依据的检索结果。搜索接口适合单独检查召回质量，也可以在运行 Ragas 评估前验证目标知识是否能够被检索到。",
+      "source": "eval-seed",
+      "type": "api",
+      "title": "相似度搜索接口",
+      "metadata": {
+        "category": "retrieval",
+        "tags": "search,similarity,milvus,recall"
+      }
+    },
+    {
+      "content": "FirstRag 的文本问答流程包括查询向量化、Milvus 相似度检索、上下文组装和大模型回答生成。检索到的文档用于约束回答内容；如果没有找到足够相关的证据，系统应明确说明无法从知识库确认，而不是依赖模型自由猜测。",
+      "source": "eval-seed",
+      "type": "architecture",
+      "title": "RAG 检索生成流程",
+      "metadata": {
+        "category": "rag-pipeline",
+        "tags": "embedding,retrieval,context,generation"
+      }
+    },
+    {
+      "content": "FirstRag 支持为聊天模型和 Embedding 模型配置多个候选项。模型路由器会按顺序尝试可用模型，在某个候选调用失败时记录原因并尝试下一个候选。所有候选都失败时，请求会返回 AI 服务不可用错误；候选模型应使用兼容的向量维度和同一知识库配置。",
+      "source": "eval-seed",
+      "type": "architecture",
+      "title": "模型路由与故障切换",
+      "metadata": {
+        "category": "model-routing",
+        "tags": "fallback,embedding,chat-model,error"
+      }
+    },
+    {
+      "content": "图片 RAG 用于处理带有图片信息的知识。系统可保存图片描述、来源链接和业务元数据，并将可检索的文本描述转换为向量。用户按商品外观或图片内容提问时，检索结果仍应返回对应来源，便于确认回答依据。",
+      "source": "eval-seed",
+      "type": "image-rag",
+      "title": "图片知识检索说明",
+      "metadata": {
+        "category": "multimodal",
+        "tags": "image,description,vector,source"
+      }
+    },
+    {
+      "content": "商品推荐必须同时参考用户明确提出的类别、颜色、预算、场景和功能要求。预算条件应使用商品 metadata.price 进行判断，不能推荐超过预算的商品；多个商品都满足时，可以列出候选并说明各自特点，不应虚构库存、折扣或未记录的规格。",
+      "source": "eval-seed",
+      "type": "policy",
+      "title": "商品推荐与预算规则",
+      "metadata": {
+        "category": "recommendation",
+        "tags": "budget,price,color,scene,grounding"
+      }
+    },
+    {
+      "content": "评估检索效果时，问题应覆盖事实问答、商品推荐、预算筛选、属性查询和知识库范围外问题。每条评估数据至少包含 question 和 ground_truth；运行 Ragas 时还需要记录系统实际 answer 以及检索得到的 contexts，才能计算答案相关性、忠实度和上下文召回等指标。",
+      "source": "eval-seed",
+      "type": "evaluation",
+      "title": "Ragas 评估数据要求",
+      "metadata": {
+        "category": "evaluation",
+        "tags": "ragas,question,ground-truth,contexts"
+      }
+    },
+    {
+      "content": "向 Milvus 写入文档前，Embedding 模型会把 content 转换为固定维度的向量。Milvus 集合的向量字段维度必须与当前 Embedding 模型输出维度一致。更换 Embedding 模型后如果维度发生变化，应创建匹配的新集合或重新构建已有知识库，不能将不同维度的向量混写。",
+      "source": "eval-seed",
+      "type": "operations",
+      "title": "向量维度一致性要求",
+      "metadata": {
+        "category": "milvus",
+        "tags": "embedding,dimension,collection,reindex"
+      }
+    }
+  ]
+}

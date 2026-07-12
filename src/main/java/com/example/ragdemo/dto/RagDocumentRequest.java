@@ -1,7 +1,7 @@
 package com.example.ragdemo.dto;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
 import java.util.Map;
+import com.fasterxml.jackson.annotation.JsonAlias;
 
 public class RagDocumentRequest {
 

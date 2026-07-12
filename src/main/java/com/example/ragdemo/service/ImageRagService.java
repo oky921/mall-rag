@@ -9,8 +9,6 @@ import com.example.ragdemo.dto.MallImageSearchResult;
 import com.example.ragdemo.exception.AiConfigurationException;
 import com.example.ragdemo.exception.AiServiceException;
 import com.example.ragdemo.exception.BadRequestException;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -37,6 +35,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 @ConditionalOnProperty(name = "app.image-rag.enabled", havingValue = "true")
@@ -323,7 +323,7 @@ public class ImageRagService {
         }
         try {
             return JsonParser.parseString(objectMapper.writeValueAsString(metadata)).getAsJsonObject();
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new BadRequestException("metadata must be JSON serializable");
         }
     }

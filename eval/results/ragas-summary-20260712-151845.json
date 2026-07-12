@@ -1,0 +1,29 @@
+{
+  "run_file": "D:\\downfile\\FirstRag\\eval\\results\\collected-20260712-151845.jsonl",
+  "row_count": 30,
+  "judge_model": "qwen-plus",
+  "embedding_model": "text-embedding-v4",
+  "metrics": {
+    "faithfulness": {
+      "mean": 0.727073,
+      "valid_rows": 30,
+      "failed_rows": 0
+    },
+    "answer_relevancy": {
+      "mean": 0.673658,
+      "valid_rows": 30,
+      "failed_rows": 0
+    },
+    "context_precision": {
+      "mean": 0.672222,
+      "valid_rows": 30,
+      "failed_rows": 0
+    },
+    "context_recall": {
+      "mean": 0.716667,
+      "valid_rows": 30,
+      "failed_rows": 0
+    }
+  },
+  "rows_without_context": 5
+}

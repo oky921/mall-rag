@@ -98,7 +98,7 @@ app:
             failure-threshold: ${APP_AI_RERANK_FAILURE_THRESHOLD:3}
             open-duration: ${APP_AI_RERANK_OPEN_DURATION:15s}
   rag:
-    max-distance: ${APP_RAG_MAX_DISTANCE:0.35}
+    max-distance: ${APP_RAG_MAX_DISTANCE:0.55}
   image-rag:
     enabled: ${APP_IMAGE_RAG_ENABLED:false}
     api-key: ${DASHSCOPE_API_KEY:${app.ai.api-key}}
