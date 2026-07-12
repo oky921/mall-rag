@@ -1,6 +1,7 @@
 # FirstRag
 
 FirstRag 是一个基于 Spring Boot 4、Spring AI 2 和 Milvus 的 RAG（检索增强生成）示例项目，旨在演示如何将大模型、向量数据库和业务数据结合起来，构建可扩展的智能问答与商品搜索体验。
+<img width="1890" height="892" alt="image" src="https://github.com/user-attachments/assets/6b00d2fc-d707-4568-8695-9528215148d0" />
 
 ## 项目简介
 
@@ -107,6 +108,7 @@ PS D:\downfile\FirstRag> mvn spring-boot:run
 
 ### 2. 前端交互界面
 项目提供了一个现代化的 Web UI，用户可以通过以下方式与系统交互：
+<img width="1890" height="892" alt="image" src="https://github.com/user-attachments/assets/6b00d2fc-d707-4568-8695-9528215148d0" />
 
 **功能模块：**
 - 📱 给我找一款手机 - 文本驱动的手机搜索
@@ -120,11 +122,14 @@ PS D:\downfile\FirstRag> mvn spring-boot:run
 - 用户输入："给我找一款手机"
 - 系统通过向量检索返回相关手机商品
 - 展示多个手机图片选项（商品 ID: P10001, P10002, P10003 等）
+<img width="1883" height="891" alt="屏幕截图 2026-07-05 210208" src="https://github.com/user-attachments/assets/e3b7c381-7f01-4dab-b13b-b2683fcf9297" />
 
 **场景 2: 图片搜索衣服**
 - 用户输入："给我推荐一下类似的衣服"
 - 系统识别图片内容（例如黄色羽绒服）
 - 返回相似的衣服产品列表（Down jacket, Clothes image 等）
+<img width="1883" height="881" alt="屏幕截图 2026-07-05 210319" src="https://github.com/user-attachments/assets/3ae671aa-4760-4ad2-8e68-4c53d4373512" />
+
 
 **场景 3: 自然对话推荐**
 - 用户提问："你们还有哪些商品"
@@ -135,6 +140,8 @@ PS D:\downfile\FirstRag> mvn spring-boot:run
   - 💄 美妆个护：护肤品、彩妆、香水、洗护用品
   - 🏠 家居生活：家具、家纺、日用百货、厨具
   - 🍔 食品母婴：食品、母婴用品等
+  <img width="1886" height="900" alt="屏幕截图 2026-07-05 210407" src="https://github.com/user-attachments/assets/6aa54165-ae2b-4c68-88d0-268f5a4c0600" />
+
 
 ## 核心功能
 
@@ -400,18 +407,6 @@ docs/
   README-Screenshots.md          # 截图说明文档
 ```
 
-## 文档说明
-
-完整的项目文档包括：
-
-- [docs/DEMO_WALKTHROUGH.md](docs/DEMO_WALKTHROUGH.md) - **详细演示指南**（包含所有截图说明和使用场景）
-- [MILVUS_RAG_QUICKSTART.md](MILVUS_RAG_QUICKSTART.md) - Milvus 向量数据库快速开始
-- [docs/mall-image-rag.md](docs/mall-image-rag.md) - 商品图片 RAG 实现细节
-- [docs/rag-json-ingest.md](docs/rag-json-ingest.md) - JSON 文档批量导入说明
-
-## 备注
-
-如果你想把这个项目继续扩展为完整的生产级 RAG 服务，可以进一步补充：
 
 - 文档解析与批量导入
 - 权限与用户认证
