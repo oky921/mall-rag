@@ -24,7 +24,7 @@ Set your DashScope/OpenAI-compatible key before starting the backend:
 $env:DASHSCOPE_API_KEY="your-api-key"
 $env:DASHSCOPE_BASE_URL="https://dashscope.aliyuncs.com/compatible-mode/v1"
 $env:DASHSCOPE_MODEL="qwen-plus"
-$env:DASHSCOPE_EMBEDDING_MODEL="text-embedding-v4"
+$env:DASHSCOPE_EMBEDDING_MODEL="qwen3.7-text-embedding"
 $env:DASHSCOPE_EMBEDDING_DIMENSIONS="1024"
 ```
 

@@ -3,6 +3,7 @@ package com.example.ragdemo.controller;
 import com.example.ragdemo.routing.ModelRouteRegistry;
 import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -11,10 +12,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api")
 public class HealthController {
 
-    private final ModelRouteRegistry modelRouteRegistry;
+    private final ObjectProvider<ModelRouteRegistry> modelRouteRegistryProvider;
 
-    public HealthController(ModelRouteRegistry modelRouteRegistry) {
-        this.modelRouteRegistry = modelRouteRegistry;
+    public HealthController(ObjectProvider<ModelRouteRegistry> modelRouteRegistryProvider) {
+        this.modelRouteRegistryProvider = modelRouteRegistryProvider;
     }
 
     @GetMapping("/health")
@@ -24,6 +25,6 @@ public class HealthController {
 
     @GetMapping("/health/models")
     public Map<String, List<?>> modelHealth() {
-        return Map.of("routes", modelRouteRegistry.snapshots());
+        return Map.of("routes", modelRouteRegistryProvider.getObject().snapshots());
     }
 }

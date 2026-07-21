@@ -5,6 +5,9 @@ import com.fasterxml.jackson.annotation.JsonAlias;
 
 public class RagDocumentRequest {
 
+    @JsonAlias("document_id")
+    private String id;
+
     private String content;
 
     private String source;
@@ -19,6 +22,14 @@ public class RagDocumentRequest {
     private String link;
 
     private Map<String, Object> metadata;
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
 
     public String getContent() {
         return content;

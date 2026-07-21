@@ -1,9 +1,30 @@
 server:
   port: 8080
+  servlet:
+    session:
+      timeout: ${APP_SESSION_TIMEOUT:30m}
+      cookie:
+        http-only: true
+        secure: ${APP_SESSION_COOKIE_SECURE:false}
+        same-site: lax
 
 spring:
   application:
     name: spring-ai-rag-demo
+  main:
+    lazy-initialization: ${SPRING_MAIN_LAZY_INITIALIZATION:true}
+  datasource:
+    url: ${APP_MYSQL_URL:jdbc:mysql://localhost:3306/first_rag_mall?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
+    username: ${APP_MYSQL_USERNAME:root}
+    password: ${APP_MYSQL_PASSWORD:123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
   data:
     redis:
       url: ${APP_REDIS_URL:${APP_RATELIMIT_REDIS_ADDRESS:redis://localhost:6379}}
@@ -35,12 +56,22 @@ spring:
         initialize-schema: true
 
 app:
+  store:
+    search-index:
+      sync-enabled: ${APP_STORE_SEARCH_INDEX_SYNC_ENABLED:true}
+      fixed-delay: ${APP_STORE_SEARCH_INDEX_FIXED_DELAY:5000}
+      batch-size: ${APP_STORE_SEARCH_INDEX_BATCH_SIZE:50}
+      max-retries: ${APP_STORE_SEARCH_INDEX_MAX_RETRIES:5}
+      initial-backoff: ${APP_STORE_SEARCH_INDEX_INITIAL_BACKOFF:10s}
+      processing-timeout: ${APP_STORE_SEARCH_INDEX_PROCESSING_TIMEOUT:5m}
+      reconciliation-enabled: ${APP_STORE_SEARCH_INDEX_RECONCILIATION_ENABLED:false}
+      reconciliation-fixed-delay: ${APP_STORE_SEARCH_INDEX_RECONCILIATION_FIXED_DELAY:6h}
   ai:
     provider: aliyun-bailian
     base-url: ${DASHSCOPE_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
     api-key: ${DASHSCOPE_API_KEY:todo-replace-with-your-api-key}
     model: ${DASHSCOPE_MODEL:qwen3.7-max}
-    embedding-model: ${DASHSCOPE_EMBEDDING_MODEL:text-embedding-v4}
+    embedding-model: ${DASHSCOPE_EMBEDDING_MODEL:qwen3.7-text-embedding}
     embedding-dimensions: ${DASHSCOPE_EMBEDDING_DIMENSIONS:1024}
     routing:
       chat:
@@ -69,8 +100,8 @@ app:
         candidates:
           - name: embedding-primary
             enabled: true
-            provider: ${APP_AI_EMBEDDING_PROVIDER:${app.ai.provider}}
-            base-url: ${APP_AI_EMBEDDING_BASE_URL:${app.ai.base-url}}
+            provider: ${APP_AI_EMBEDDING_PROVIDER:dashscope-native}
+            base-url: ${APP_AI_EMBEDDING_BASE_URL:${DASHSCOPE_EMBEDDING_BASE_URL:https://dashscope.aliyuncs.com/api/v1}}
             api-key: ${APP_AI_EMBEDDING_API_KEY:${app.ai.api-key}}
             model: ${APP_AI_EMBEDDING_MODEL:${app.ai.embedding-model}}
             dimensions: ${APP_AI_EMBEDDING_DIMENSIONS:${app.ai.embedding-dimensions}}

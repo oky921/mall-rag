@@ -7,6 +7,7 @@ import com.example.ragdemo.dto.MallChatResponse;
 import com.example.ragdemo.dto.MallImageSearchRequest;
 import com.example.ragdemo.dto.MallImageSearchResult;
 import com.example.ragdemo.dto.MallImageSearchResponse;
+import com.example.ragdemo.dto.ProductSearchResult;
 import com.example.ragdemo.dto.RagChatResponse;
 import com.example.ragdemo.dto.RagQueryRequest;
 import com.example.ragdemo.exception.AiServiceException;
@@ -30,20 +31,37 @@ public class MallChatService {
 
     private final ObjectProvider<ChatService> chatServiceProvider;
 
+    private final StoreProductRecommendationService productRecommendationService;
+
     public MallChatService(ObjectProvider<ImageRagService> imageRagServiceProvider,
             ObjectProvider<RagService> ragServiceProvider,
-            ObjectProvider<ChatService> chatServiceProvider) {
+            ObjectProvider<ChatService> chatServiceProvider,
+            StoreProductRecommendationService productRecommendationService) {
         this.imageRagServiceProvider = imageRagServiceProvider;
         this.ragServiceProvider = ragServiceProvider;
         this.chatServiceProvider = chatServiceProvider;
+        this.productRecommendationService = productRecommendationService;
     }
 
     public MallChatResponse chat(MallChatRequest request) {
         String message = normalizeMessage(request);
+        if (productRecommendationService.isProductShoppingIntent(message)) {
+            return searchStoreProducts(message, normalizeTopK(request));
+        }
         if (isProductSearchIntent(message)) {
             return searchProductsByText(message, normalizeTopK(request));
         }
         return ragOrPlain(request, message);
+    }
+
+    private MallChatResponse searchStoreProducts(String message, int topK) {
+        List<ProductSearchResult> results = productRecommendationService.recommend(message, topK);
+        if (results.isEmpty()) {
+            return MallChatResponse.productSearch(
+                    "暂时没有找到同时满足这些条件的在售商品，可以放宽预算或换一种需求描述。", results);
+        }
+        return MallChatResponse.productSearch(
+                "我从商城中找到了这些相关商品。价格来自当前商城数据，具体库存请进入商品详情页查看。", results);
     }
 
     public MallChatResponse chatWithImage(String message, String imagePath, Integer topK) {

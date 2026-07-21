@@ -12,6 +12,7 @@ import com.example.ragdemo.exception.BadRequestException;
 import com.example.ragdemo.rerank.RerankDocument;
 import com.example.ragdemo.rerank.RerankModel;
 import com.example.ragdemo.rerank.RerankResult;
+import com.example.ragdemo.service.RagQueryPreprocessService.RagQueryPlan;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -60,7 +61,18 @@ public class RagService {
 
     private final RerankModel rerankModel;
 
+    private final RagQueryPreprocessService queryPreprocessService = new RagQueryPreprocessService();
+
     private final double maxDistance;
+
+    @Value("${app.rag.ingest-max-attempts:3}")
+    private int ingestMaxAttempts = 3;
+
+    @Value("${app.rag.ingest-retry-backoff-ms:1200}")
+    private long ingestRetryBackoffMillis;
+
+    @Value("${app.rag.ingest-batch-delay-ms:600}")
+    private long ingestBatchDelayMillis;
 
     public RagService(VectorStore vectorStore, ChatClient chatClient, RerankModel rerankModel,
             @Value("${app.rag.max-distance:0.55}") double maxDistance) {
@@ -85,11 +97,82 @@ public class RagService {
         try {
             for (int start = 0; start < documents.size(); start += EMBEDDING_BATCH_SIZE) {
                 int end = Math.min(start + EMBEDDING_BATCH_SIZE, documents.size());
-                vectorStore.add(documents.subList(start, end));
+                addDocumentsWithRetry(documents.subList(start, end), start, end);
+                sleepAfterBatch(end, documents.size());
             }
             return RagIngestResponse.ok(documents.size());
         } catch (RuntimeException ex) {
             throw new AiServiceException("Failed to write document to Milvus. Check Milvus connection and embedding settings.", ex);
+        }
+    }
+
+    public RagIngestResponse replaceAll(List<RagDocumentRequest> requests) {
+        if (requests == null || requests.isEmpty()) {
+            throw new BadRequestException("documents cannot be empty");
+        }
+        List<String> documentIds = requests.stream()
+                .map(RagDocumentRequest::getId)
+                .filter(StringUtils::hasText)
+                .map(String::trim)
+                .toList();
+        if (documentIds.size() != requests.size()) {
+            throw new BadRequestException("every replacement document must have an id");
+        }
+        try {
+            vectorStore.delete(documentIds);
+        } catch (RuntimeException ex) {
+            throw new AiServiceException("Failed to delete old vector documents before replacement.", ex);
+        }
+        return ingestAll(requests);
+    }
+
+    public void deleteDocuments(List<String> documentIds) {
+        if (documentIds == null || documentIds.isEmpty()) {
+            return;
+        }
+        try {
+            vectorStore.delete(documentIds);
+        } catch (RuntimeException ex) {
+            throw new AiServiceException("Failed to delete document from Milvus.", ex);
+        }
+    }
+
+    private void addDocumentsWithRetry(List<Document> batch, int start, int end) {
+        int maxAttempts = Math.max(1, ingestMaxAttempts);
+        RuntimeException lastFailure = null;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                vectorStore.add(batch);
+                return;
+            } catch (RuntimeException ex) {
+                lastFailure = ex;
+                if (attempt >= maxAttempts) {
+                    break;
+                }
+                log.warn("RAG ingest batch {}-{} failed on attempt {}/{}; retrying after {} ms.",
+                        start, end, attempt, maxAttempts, ingestRetryBackoffMillis, ex);
+                sleep(ingestRetryBackoffMillis);
+            }
+        }
+        throw new AiServiceException("Failed to write document batch " + start + "-" + end
+                + " to Milvus after " + maxAttempts + " attempts.", lastFailure);
+    }
+
+    private void sleepAfterBatch(int end, int total) {
+        if (end < total && ingestBatchDelayMillis > 0) {
+            sleep(ingestBatchDelayMillis);
+        }
+    }
+
+    private void sleep(long millis) {
+        if (millis <= 0) {
+            return;
+        }
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new AiServiceException("Interrupted while waiting to retry RAG ingest.", ex);
         }
     }
 
@@ -144,12 +227,23 @@ public class RagService {
 
     private List<RagSearchResult> searchDocuments(RagQueryRequest request, String query) {
         int topK = normalizeTopK(request);
+        RagQueryPlan queryPlan = queryPreprocessService.plan(query);
 
         try {
             List<Document> documents = new ArrayList<>();
-            documents.addAll(searchVectorStore(expandRetrievalQuery(query), MAX_TOP_K, null));
-            documents.addAll(searchExactProductDocuments(query));
-            documents.addAll(searchCategoryDocuments(query));
+            String semanticQuery = expandRetrievalQuery(queryPlan.rewrittenQuery());
+            if (queryPlan.filterExpressions().isEmpty()) {
+                documents.addAll(searchVectorStore(semanticQuery, MAX_TOP_K, null));
+            } else {
+                for (String filterExpression : queryPlan.filterExpressions()) {
+                    documents.addAll(searchVectorStore(semanticQuery, MAX_TOP_K, filterExpression));
+                }
+            }
+
+            if (!queryPlan.targetsLocalMarkdown()) {
+                documents.addAll(searchExactProductDocuments(query));
+                documents.addAll(searchCategoryDocuments(query));
+            }
             documents = mergeDocuments(documents);
 
             List<RerankDocument> rerankDocuments = documents.stream()
@@ -161,9 +255,10 @@ public class RagService {
                 return List.of();
             }
 
-            return prioritizeBusinessMatches(query, rerankModel.rerank(query, rerankDocuments, rerankTopK).stream()
+            List<RagSearchResult> rerankedResults = rerankModel.rerank(queryPlan.rewrittenQuery(), rerankDocuments, rerankTopK).stream()
                     .map(this::toSearchResult)
-                    .collect(Collectors.toList())).stream()
+                    .collect(Collectors.toList());
+            return prioritizeQueryPlanMatches(queryPlan, prioritizeBusinessMatches(query, rerankedResults)).stream()
                     .limit(topK)
                     .collect(Collectors.toList());
         } catch (RuntimeException ex) {
@@ -269,6 +364,39 @@ public class RagService {
         return score;
     }
 
+    private List<RagSearchResult> prioritizeQueryPlanMatches(RagQueryPlan queryPlan, List<RagSearchResult> results) {
+        return results.stream()
+                .peek(result -> applyQueryPlanMetadata(result, queryPlan))
+                .sorted(Comparator.comparingInt((RagSearchResult result) -> queryPlanMatchScore(result, queryPlan))
+                        .reversed())
+                .toList();
+    }
+
+    private void applyQueryPlanMetadata(RagSearchResult result, RagQueryPlan queryPlan) {
+        result.getMetadata().put("queryIntent", queryPlan.intent());
+        result.getMetadata().put("rewrittenQuery", queryPlan.rewrittenQuery());
+        result.getMetadata().put("primaryDocType", queryPlan.primaryDocType());
+        if (queryPlan.targetsLocalMarkdown() && matchesPlannedDocType(result, queryPlan)) {
+            result.getMetadata().put("businessMatch", "local_doc_type");
+        }
+    }
+
+    private int queryPlanMatchScore(RagSearchResult result, RagQueryPlan queryPlan) {
+        if (!queryPlan.targetsLocalMarkdown()) {
+            return 0;
+        }
+        return matchesPlannedDocType(result, queryPlan) ? 1000 : 0;
+    }
+
+    private boolean matchesPlannedDocType(RagSearchResult result, RagQueryPlan queryPlan) {
+        Object source = result.getMetadata().get("source");
+        Object docType = result.getMetadata().get("doc_type");
+        return source != null
+                && docType != null
+                && "local-md".equals(source.toString())
+                && queryPlan.filterExpressions().stream().anyMatch(filter -> filter.contains("doc_type == '" + docType + "'"));
+    }
+
     private RagSearchResult toSearchResult(RerankResult result) {
         Map<String, Object> metadata = new HashMap<>(result.document().metadata());
         metadata.put("rerankScore", result.score());
@@ -366,6 +494,13 @@ public class RagService {
     }
 
     private Document toDocument(RagDocumentRequest request) {
+        if (StringUtils.hasText(request.getId())) {
+            return Document.builder()
+                    .id(request.getId().trim())
+                    .text(normalizeContent(request))
+                    .metadata(buildMetadata(request))
+                    .build();
+        }
         return Document.builder()
                 .text(normalizeContent(request))
                 .metadata(buildMetadata(request))
@@ -422,6 +557,12 @@ public class RagService {
         addPromptMetadataLine(lines, metadata, "title", "Title");
         addPromptMetadataLine(lines, metadata, "type", "Type");
         addPromptMetadataLine(lines, metadata, "source", "Source");
+        addPromptMetadataLine(lines, metadata, "doc_type", "Document Type");
+        addPromptMetadataLine(lines, metadata, "source_file", "Source File");
+        addPromptMetadataLine(lines, metadata, "topic", "Topic");
+        addPromptMetadataLine(lines, metadata, "summary", "Summary");
+        addPromptMetadataLine(lines, metadata, "queryIntent", "Query Intent");
+        addPromptMetadataLine(lines, metadata, "rewrittenQuery", "Rewritten Query");
         addPromptMetadataLine(lines, metadata, "product_id", "Product ID");
         addPromptMetadataLine(lines, metadata, "link", "Link");
         addPromptMetadataLine(lines, metadata, "category", "Category");
@@ -444,7 +585,7 @@ public class RagService {
 
     private boolean isRelevant(RagSearchResult result) {
         Object businessMatch = result.getMetadata().get("businessMatch");
-        if ("product_id".equals(businessMatch) || "category_budget".equals(businessMatch)) {
+        if ("product_id".equals(businessMatch) || "category_budget".equals(businessMatch) || "local_doc_type".equals(businessMatch)) {
             return true;
         }
         Object distance = result.getMetadata().get("distance");

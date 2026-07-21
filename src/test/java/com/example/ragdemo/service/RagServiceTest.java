@@ -146,6 +146,36 @@ class RagServiceTest {
     }
 
     @Test
+    void searchFiltersLocalMarkdownByPlannedDocumentType() {
+        VectorStore vectorStore = mock(VectorStore.class);
+        when(vectorStore.similaritySearch(any(SearchRequest.class))).thenAnswer(invocation -> {
+            SearchRequest searchRequest = invocation.getArgument(0);
+            if (hasFilter(searchRequest, "local-md") && hasFilter(searchRequest, "manual")) {
+                Map<String, Object> metadata = new HashMap<>();
+                metadata.put("source", "local-md");
+                metadata.put("doc_type", "manual");
+                metadata.put("topic", "首次空烧");
+                metadata.put("distance", 0.9);
+                return List.of(Document.builder()
+                        .text("首次使用前，空气炸锅应设置 180℃、10分钟 进行首次空烧。")
+                        .metadata(metadata)
+                        .build());
+            }
+            return List.of(productDocument("P10001", "digital", 2999, "P10001 蓝色智能手机"));
+        });
+        RagService service = new RagService(
+                vectorStore, mock(ChatClient.class), new PassThroughRerankModel(), 0.55);
+        RagQueryRequest request = new RagQueryRequest();
+        request.setMessage("空气炸锅第一次怎么用？");
+
+        RagSearchResponse response = service.search(request);
+
+        assertEquals("manual", response.getResults().getFirst().getMetadata().get("doc_type"));
+        assertEquals("local_doc_type", response.getResults().getFirst().getMetadata().get("businessMatch"));
+        assertEquals("manual_usage", response.getResults().getFirst().getMetadata().get("queryIntent"));
+    }
+
+    @Test
     void promptMetadataIncludesProductFilterFields() {
         RagService service = new RagService(
                 mock(VectorStore.class), mock(ChatClient.class), mock(RerankModel.class), 0.55);

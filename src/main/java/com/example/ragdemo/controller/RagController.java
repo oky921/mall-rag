@@ -1,11 +1,14 @@
 package com.example.ragdemo.controller;
 
 import com.example.ragdemo.exception.BadRequestException;
+import com.example.ragdemo.dto.LocalMarkdownIngestRequest;
+import com.example.ragdemo.dto.LocalMarkdownIngestResponse;
 import com.example.ragdemo.dto.RagChatResponse;
 import com.example.ragdemo.dto.RagDocumentRequest;
 import com.example.ragdemo.dto.RagIngestResponse;
 import com.example.ragdemo.dto.RagQueryRequest;
 import com.example.ragdemo.dto.RagSearchResponse;
+import com.example.ragdemo.service.MarkdownKnowledgeIngestService;
 import com.example.ragdemo.service.RagService;
 import java.io.IOException;
 import java.util.List;
@@ -28,10 +31,13 @@ public class RagController {
 
     private final RagService ragService;
 
+    private final MarkdownKnowledgeIngestService markdownKnowledgeIngestService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public RagController(RagService ragService) {
+    public RagController(RagService ragService, MarkdownKnowledgeIngestService markdownKnowledgeIngestService) {
         this.ragService = ragService;
+        this.markdownKnowledgeIngestService = markdownKnowledgeIngestService;
     }
 
     @PostMapping("/documents")
@@ -55,6 +61,12 @@ public class RagController {
         } catch (IOException ex) {
             throw new BadRequestException("file must be a valid JSON document");
         }
+    }
+
+    @PostMapping("/documents/ingest-local-md")
+    public LocalMarkdownIngestResponse ingestLocalMarkdown(@RequestBody(required = false) LocalMarkdownIngestRequest request) {
+        String directory = request == null ? null : request.getDirectory();
+        return markdownKnowledgeIngestService.ingest(directory);
     }
 
     @PostMapping("/search")

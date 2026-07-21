@@ -14,6 +14,7 @@ import {
   User,
   X
 } from 'lucide-react';
+import { StorePage } from './StorePage';
 
 type Role = 'user' | 'assistant';
 type HealthState = 'checking' | 'online' | 'offline';
@@ -37,6 +38,19 @@ type ImageResult = {
   metadata?: Record<string, unknown>;
 };
 
+type ProductResult = {
+  id: number;
+  code: string;
+  name: string;
+  subtitle: string;
+  category: string;
+  price: number;
+  originalPrice: number;
+  imageUrl: string;
+  detailUrl: string;
+  score?: number;
+};
+
 type Reference = {
   title?: string;
   content?: string;
@@ -49,6 +63,7 @@ type ChatMessage = {
   content: string;
   createdAt: string;
   imageResults?: ImageResult[];
+  productResults?: ProductResult[];
   references?: Reference[];
   uploadPreviewUrl?: string;
 };
@@ -61,12 +76,13 @@ type ApiResponse = {
   error?: string;
   imageResults?: ImageResult[];
   image_results?: ImageResult[];
+  productResults?: ProductResult[];
   sources?: Reference[];
   references?: Reference[];
 };
 
 const quickQuestions = [
-  '\u7ed9\u6211\u627e\u4e00\u6b3e\u624b\u673a',
+  '\u60f3\u4e70\u4e00\u6b3e 1000 \u5143\u4ee5\u5185\u3001\u9002\u5408\u901a\u52e4\u7684\u964d\u566a\u8033\u673a',
   '\u5c55\u793a\u5316\u5986\u54c1\u5546\u54c1',
   '\u627e\u4e00\u4ef6\u7fbd\u7ed2\u670d',
   '\u6839\u636e\u6211\u4e0a\u4f20\u7684\u7167\u7247\u627e\u76f8\u4f3c\u5546\u54c1'
@@ -92,7 +108,7 @@ function createWelcomeMessage(): ChatMessage {
     id: createId(),
     role: 'assistant',
     content:
-      '\u6211\u53ef\u4ee5\u5e2e\u4f60\u68c0\u7d22\u5546\u54c1\u5e93\u3002\u4f60\u53ef\u4ee5\u95ee\u201c\u7ed9\u6211\u627e\u4e00\u6b3e\u624b\u673a\u201d\u3001\u201c\u5c55\u793a\u5316\u5986\u54c1\u201d\uff0c\u4e5f\u53ef\u4ee5\u4e0a\u4f20\u7167\u7247\u67e5\u627e\u76f8\u4f3c\u5546\u54c1\u3002',
+      '\u6211\u53ef\u4ee5\u6839\u636e\u9884\u7b97\u3001\u4f7f\u7528\u573a\u666f\u548c\u529f\u80fd\u9700\u6c42\u4ece\u5546\u57ce\u4e2d\u63a8\u8350\u5546\u54c1\u3002\u70b9\u51fb\u63a8\u8350\u5361\u7247\u53ef\u67e5\u770b\u5b9e\u65f6\u4ef7\u683c\u3001\u89c4\u683c\u548c\u5e93\u5b58\u3002',
     createdAt: getNowLabel()
   };
 }
@@ -134,6 +150,15 @@ function productIdOf(result: ImageResult) {
 
 function visibleResults(results: ImageResult[]) {
   return results.filter((result) => typeof result.score !== 'number' || result.score >= MIN_VISIBLE_SCORE);
+}
+
+function formatProductPrice(price: number) {
+  return new Intl.NumberFormat('zh-CN', {
+    style: 'currency',
+    currency: 'CNY',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  }).format(price);
 }
 
 function buildComingSoonUrl(result: ImageResult) {
@@ -179,6 +204,8 @@ function ComingSoonPage() {
 
 export function App() {
   const isComingSoonRoute = window.location.pathname === '/coming-soon';
+  const isStoreRoute = window.location.pathname === '/mall'
+    || window.location.pathname.startsWith('/mall/');
   const [messages, setMessages] = useState<ChatMessage[]>([createWelcomeMessage()]);
   const [question, setQuestion] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -213,10 +240,10 @@ export function App() {
   }
 
   useEffect(() => {
-    if (!isComingSoonRoute) {
+    if (!isComingSoonRoute && !isStoreRoute) {
       void checkHealth();
     }
-  }, [isComingSoonRoute]);
+  }, [isComingSoonRoute, isStoreRoute]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -275,6 +302,7 @@ export function App() {
           role: 'assistant',
           content: data.content || data.answer || '\u6682\u65f6\u6ca1\u6709\u8fd4\u56de\u56de\u7b54\u3002',
           imageResults: visibleResults(data.imageResults || data.image_results || []),
+          productResults: data.productResults || [],
           references: data.references || data.sources || [],
           createdAt: getNowLabel()
         }
@@ -335,6 +363,10 @@ export function App() {
     return <ComingSoonPage />;
   }
 
+  if (isStoreRoute) {
+    return <StorePage />;
+  }
+
   return (
     <main className="app-shell">
       <header className="global-nav">
@@ -349,6 +381,10 @@ export function App() {
         </div>
 
         <div className="nav-actions">
+          <a className="mode-switch-link" href="/mall">
+            <ShoppingBag size={17} aria-hidden="true" />
+            <span>{'商品商城'}</span>
+          </a>
           <div className={`status-pill ${health}`} aria-live="polite">
             <span className="status-dot" />
             <span>{healthLabel}</span>
@@ -458,6 +494,12 @@ export function App() {
                         {'\u5546\u54c1\u7ed3\u679c'}
                       </span>
                     )}
+                    {message.productResults && message.productResults.length > 0 && (
+                      <span className="source-badge product-source-badge">
+                        <ShoppingBag size={12} aria-hidden="true" strokeWidth={2} />
+                        {'\u5546\u57ce\u5728\u552e\u5546\u54c1'}
+                      </span>
+                    )}
                   </div>
                   <p>{message.content}</p>
 
@@ -475,6 +517,27 @@ export function App() {
                           <div className="image-result-body">
                             <strong>{result.title || `\u5546\u54c1 ${index + 1}`}</strong>
                             <span>{'\u5546\u54c1ID\uff1a'}{productIdOf(result)}</span>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+
+                  {message.productResults && message.productResults.length > 0 && (
+                    <div className="product-result-grid" aria-label="\u5546\u54c1\u63a8\u8350\u7ed3\u679c">
+                      {message.productResults.map((product) => (
+                        <a className="product-result-card" href={product.detailUrl} key={`${message.id}-${product.id}`}>
+                          <img src={product.imageUrl} alt={product.name} loading="lazy" />
+                          <div className="product-result-body">
+                            <span>{product.category}</span>
+                            <strong>{product.name}</strong>
+                            <p>{product.subtitle}</p>
+                            <div>
+                              <strong>{formatProductPrice(product.price)}</strong>
+                              {product.originalPrice > product.price && (
+                                <del>{formatProductPrice(product.originalPrice)}</del>
+                              )}
+                            </div>
                           </div>
                         </a>
                       ))}

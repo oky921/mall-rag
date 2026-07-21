@@ -1,6 +1,7 @@
 # FirstRag
 
 FirstRag 是一个基于 Spring Boot 4、Spring AI 2 和 Milvus 的 RAG（检索增强生成）示例项目，旨在演示如何将大模型、向量数据库和业务数据结合起来，构建可扩展的智能问答与商品搜索体验。
+
 <img width="1890" height="892" alt="image" src="https://github.com/user-attachments/assets/6b00d2fc-d707-4568-8695-9528215148d0" />
 
 ## 项目简介
@@ -12,6 +13,7 @@ FirstRag 是一个基于 Spring Boot 4、Spring AI 2 和 Milvus 的 RAG（检索
 - 图片 RAG：支持商品图片向量检索与相似图搜索
 - 模型路由与降级：支持多模型候选路由，提升可用性与容错能力
 - 分布式限流：基于 Redis 的队列式限流能力
+- **知选商城**：完整的电商前端与后端，包含商品浏览、购物车、订单与模拟支付
 - 前端交互界面：使用 React + Vite 提供可视化访问入口
 
 ## 主要技术栈
@@ -20,6 +22,9 @@ FirstRag 是一个基于 Spring Boot 4、Spring AI 2 和 Milvus 的 RAG（检索
 - Maven
 - Spring Boot 4.1.0
 - Spring AI 2.0.0
+- Spring Security + Session
+- Spring Data JPA (Hibernate)
+- MySQL 8
 - Milvus 2.6
 - Redis
 - React + Vite + TypeScript
@@ -34,10 +39,15 @@ src/main/java/com/example/ragdemo
   service/          # 业务服务层，封装大模型调用与向量检索逻辑
   routing/          # 模型路由与失败降级逻辑
   ratelimit/        # 分布式限流实现
+  rerank/           # 检索结果重排模型
+  store/            # 知选商城：商品、购物车、订单、用户、地址
   dto/              # 请求与响应 DTO
   exception/        # 全局异常处理
-frontend/          # React + Vite 前端项目
-docs/              # 项目说明文档
+frontend/          # React + Vite 前端项目（智能助手 + 知选商城）
+docs/              # 项目说明文档与截图
+doc/               # 设计文档（高层设计、详细设计、提案）
+text/              # 示例 Markdown 知识库文档
+eval/              # Ragas 评估数据集与结果
 ```
 
 ## 环境依赖
@@ -46,7 +56,8 @@ docs/              # 项目说明文档
 
 - JDK 21
 - Maven 3.8+（推荐 3.9+）
-- Redis（用于限流）
+- MySQL 8（商城数据持久化）
+- Redis（用于限流与 Session）
 - Milvus 2.6（用于向量检索）
 - DashScope / OpenAI 兼容模型 API Key
 
@@ -60,11 +71,14 @@ docs/              # 项目说明文档
 $env:DASHSCOPE_API_KEY="your-api-key"
 $env:DASHSCOPE_BASE_URL="https://dashscope.aliyuncs.com/compatible-mode/v1"
 $env:DASHSCOPE_MODEL="qwen3.7-max"
-$env:DASHSCOPE_EMBEDDING_MODEL="text-embedding-v4"
+$env:DASHSCOPE_EMBEDDING_MODEL="qwen3.7-text-embedding"
 $env:DASHSCOPE_EMBEDDING_DIMENSIONS="1024"
 $env:MILVUS_HOST="localhost"
 $env:MILVUS_PORT="19530"
 $env:APP_REDIS_URL="redis://localhost:6379"
+$env:APP_MYSQL_URL="jdbc:mysql://localhost:3306/first_rag_mall?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai"
+$env:APP_MYSQL_USERNAME="root"
+$env:APP_MYSQL_PASSWORD="123456"
 ```
 
 ## 启动方式
@@ -91,15 +105,73 @@ npm run dev
 
 前端默认地址：
 
-- http://localhost:5173
+- 智能助手：http://localhost:5173
+- 知选商城：http://localhost:5173/mall
+
+## 知选商城
+
+项目内置了完整的电商模块「知选商城」，与智能助手共享同一套后端服务。商城数据通过 JPA 持久化到 MySQL，支持商品浏览、规格选择、购物车、订单与模拟支付全流程。
+
+### 商城首页
+
+左侧为商品分类导航（全部商品、家居生活、数码家电、服饰鞋包、美妆护理），右侧展示精选 Banner 与商品卡片列表，支持关键词搜索与分类筛选。
+
+![知选商城首页](docs/screenshots/mall-homepage.png)
+
+### 商品详情与 SKU 选择
+
+商品详情页展示大图、评分、累计销量、SKU 规格选择与库存信息。用户可选择不同规格（如颜色）并调整数量后一键加入购物车。
+
+![商品详情页](docs/screenshots/mall-product-detail.png)
+
+### 购物车
+
+购物车以侧边抽屉形式呈现，支持数量增减、单品删除和一键去结算。购物车数据持久化到服务端，登录后跨页面保留。
+
+### 订单确认与模拟支付
+
+结算页展示收货地址选择、商品清单勾选与订单金额汇总。提交订单后进入订单详情页，可进行「模拟支付」或「取消订单」。支付与取消均通过悲观锁保证并发安全。
+
+![订单确认页](docs/screenshots/mall-checkout.png)
+
+![订单创建成功](docs/screenshots/mall-order-created.png)
+
+![模拟支付成功](docs/screenshots/mall-payment-success.png)
+
+### 用户与订单管理
+
+- **用户认证**：基于 Spring Security Session，支持注册、登录、登出，密码使用 BCrypt 加密
+- **个人中心**：可修改昵称与手机号
+- **收货地址**：支持新增、编辑、删除、设为默认地址
+- **订单中心**：按全部 / 待支付 / 已支付 / 已取消筛选订单，支持支付与取消操作
+
+### 商城技术结构
+
+```text
+store/
+  StoreController          # 商品与分类查询 API
+  StoreCommerceController  # 购物车与订单 API
+  StoreAccountController   # 用户资料 API
+  StoreAddressController   # 收货地址 API
+  StoreAuthController      # 登录/注册/登出/CSRF
+  StoreSecurityConfig      # Spring Security 配置
+  StoreProductService      # 商品与分类业务
+  StoreCartService         # 购物车业务（库存校验）
+  StoreOrderService        # 订单业务（下单、支付、取消）
+  StoreUserService         # 用户业务
+  StoreAddressService      # 地址业务
+  StoreDataInitializer     # 演示数据初始化
+  StoreProductCatalogService / StoreProductSearchIndexService  # 搜索索引与同步
+```
 
 ## 功能演示
 
 本项目支持多种交互模式，包括文本搜索、图片搜索和对话推荐。以下是实际运行效果演示：
 
 ### 1. 系统启动
-```
-PS D:\downfile\FirstRag> $env:DASHSCOPE_API_KEY="sk-d1219710ff5248b6a8cb4c54a9c38082"
+
+```powershell
+PS D:\downfile\FirstRag> $env:DASHSCOPE_API_KEY="your-api-key"
 PS D:\downfile\FirstRag> $env:APP_VECTORSTORE_TYPE="milvus"
 PS D:\downfile\FirstRag> mvn spring-boot:run
 ```
@@ -107,6 +179,7 @@ PS D:\downfile\FirstRag> mvn spring-boot:run
 后端成功启动后，访问前端地址即可开始使用。
 
 ### 2. 前端交互界面
+
 项目提供了一个现代化的 Web UI，用户可以通过以下方式与系统交互：
 <img width="1890" height="892" alt="image" src="https://github.com/user-attachments/assets/6b00d2fc-d707-4568-8695-9528215148d0" />
 
@@ -179,7 +252,7 @@ PS D:\downfile\FirstRag> mvn spring-boot:run
 └── chat-qwen35-plus: qwen3.5-plus (优先级 200)
 
 Embedding 模型候选：
-├── embedding-primary: text-embedding-v4 (优先级 100)
+├── embedding-primary: qwen3.7-text-embedding (DashScope 原生，优先级 100)
 └── embedding-text-v3: text-embedding-v3 (优先级 200)
 ```
 
@@ -196,6 +269,43 @@ Embedding 模型候选：
   chat: max-concurrent: 2
   rag: max-concurrent: 1
   ```
+
+### 5. 数据持久化层
+
+项目使用 **Spring Data JPA + MySQL** 持久化商城业务数据：
+
+| 实体 | 说明 |
+|---|---|
+| `StoreProduct` | 商品主信息（名称、分类、价格、销量等） |
+| `StoreSku` | SKU 规格（颜色、库存、独立价格等） |
+| `StoreCartItem` | 购物车项（关联用户与 SKU） |
+| `StoreOrder` / `StoreOrderItem` | 订单与订单明细快照 |
+| `StoreUser` | 商城用户（用户名、昵称、密码哈希） |
+| `StoreAddress` | 收货地址（收件人、电话、省市区与详细地址） |
+
+### 6. 用户认证与安全
+
+- 基于 **Spring Security Session** 的无状态表单认证替代方案
+- 密码使用 **BCrypt** 哈希存储
+- **Cookie CSRF Token** 保护写接口
+- 公开接口（商品浏览、聊天）免登录；购物车、订单、地址等需认证
+- 所有用户相关接口通过 `CurrentStoreUser` 边界读取当前用户，拒绝客户端传入用户 ID
+
+### 7. Markdown 知识入库
+
+后端支持从本地 Markdown 文件批量解析并写入 Milvus 向量库：
+
+- 自动解析 Markdown 标题层级生成结构化内容
+- 支持按文件批量入库
+- 入库内容可用于后续 RAG 问答
+
+### 8. 商品搜索索引同步（Outbox）
+
+商城模块实现了 Outbox 模式用于商品搜索索引的异步同步：
+
+- 商品变更时写入 Outbox 事件表
+- 定时任务异步消费事件并同步到搜索索引
+- 支持重试、对账与批量处理，保证索引与数据库最终一致
 
 ## Ragas 评估结果
 
@@ -218,7 +328,7 @@ Embedding 模型候选：
 
 ### 评估结论
 
-整体看，项目的 RAG 效果已经从“检索不稳定”提升到“基本可用，并能处理商品编号、预算、类别推荐问题”：
+整体看，项目的 RAG 效果已经从"检索不稳定"提升到"基本可用，并能处理商品编号、预算、类别推荐问题"：
 
 - `context_recall` 从 `0.4000` 提升到 `0.9222`，说明大多数问题已经可以召回正确知识。
 - `answer_relevancy` 从 `0.5963` 提升到 `0.7817`，回答与用户问题的匹配度明显提升。
@@ -229,13 +339,13 @@ Embedding 模型候选：
 
 | 问题 | 修改前 | 修改后 |
 |---|---|---|
-| `P10001 这款商品适合什么用户？` | 错误回答“知识库没有 P10001” | 正确回答适合轻薄机身、日常拍照、稳定续航用户 |
+| `P10001 这款商品适合什么用户？` | 错误回答"知识库没有 P10001" | 正确回答适合轻薄机身、日常拍照、稳定续航用户 |
 | `有没有 500 元以内的服饰鞋包商品？` | 错误回答没有相关商品 | 正确推荐 P20001 黄色轻薄羽绒服和 P20002 白色休闲运动鞋 |
 | 医疗诊断 / 法律代理 | 兜底回答较泛 | 明确说明不属于当前商品知识库范围 |
 
 需要注意：医疗诊断、法律代理这类范围外问题，本项目会正确拒答，但由于没有检索上下文，Ragas 的 `faithfulness`、`context_precision`、`context_recall` 可能会给 0。这类问题更适合单独用规则评估，而不是只看 Ragas 上下文指标。
 
-后续优化方向是：当检测到“商品编号”或“类别 + 预算”明确命中时，只把匹配商品上下文传给模型，进一步减少推荐题中的无关商品上下文，提升 `context_precision`。
+后续优化方向是：当检测到"商品编号"或"类别 + 预算"明确命中时，只把匹配商品上下文传给模型，进一步减少推荐题中的无关商品上下文，提升 `context_precision`。
 
 ## 使用场景
 
@@ -245,6 +355,7 @@ Embedding 模型候选：
 2. **商品搜索引擎** - 支持多模态搜索和智能问答
 3. **客服助手** - 为用户快速查找相关商品和回答常见问题
 4. **库存管理** - 支持文本和图片的库存检索
+5. **演示商城** - 可作为具备完整购物流程的示例电商平台
 
 ## 主要接口示例
 
@@ -286,58 +397,55 @@ curl -X POST http://localhost:8080/api/mall/images/search \
   -d '{"query":"blue phone product image","topK":5}'
 ```
 
+### 商城商品列表
+
+```bash
+curl "http://localhost:8080/api/store/products?category=数码家电"
+```
+
+### 商城下单
+
+```bash
+curl -X POST http://localhost:8080/api/store/orders \
+  -H "Content-Type: application/json" \
+  -d '{"cartItemIds":[1,2],"addressId":1}'
+```
+
+### 模拟支付
+
+```bash
+curl -X POST http://localhost:8080/api/store/orders/1/pay
+```
+
 ## 主要技术内容
 
-1. Spring AI 集成
+1. **Spring AI 集成**
    - 使用 ChatClient 进行大模型调用
    - 支持向量检索与上下文增强生成
 
-2. Milvus 向量数据库
+2. **Milvus 向量数据库**
    - 存储文档和图片向量
    - 支持相似度搜索与召回
 
-3. 模型路由与容错
+3. **模型路由与容错**
    - 可配置多个模型候选项
    - 支持失败阈值与开放时长控制
 
-4. Redis 分布式限流
+4. **Redis 分布式限流**
    - 基于队列和 Redis 的并发控制与请求节流
 
-5. 前端可视化支持
+5. **Spring Data JPA 实体层**
+   - 商品、SKU、购物车、订单、用户、地址全实体映射
+   - 下单与支付使用悲观锁保证并发安全
+
+6. **Spring Security 会话认证**
+   - Session + Cookie 认证机制
+   - CSRF Token 保护写接口
+   - 接口级权限控制
+
+7. **前端可视化支持**
    - 基于 React + Vite 提供交互式体验
-
-### 图片 RAG 检索
-
-```bash
-curl -X POST http://localhost:8080/api/mall/images/search \
-  -H "Content-Type: application/json" \
-  -d '{"query":"blue phone product image","topK":5}'
-```
-
-### 图片上传搜索
-
-```bash
-curl -X POST http://localhost:8080/api/mall/images/search-by-upload \
-  -F "file=@query.jpg" \
-  -F "topK=5"
-```
-
-### 商城聊天推荐
-
-```bash
-curl -X POST http://localhost:8080/api/mall/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message":"给我找一款蓝色的手机","topK":3}'
-```
-
-### 带图片的智能推荐
-
-```bash
-curl -X POST http://localhost:8080/api/mall/chat/with-image \
-  -F "message=给我推荐类似的衣服" \
-  -F "file=@product.jpg" \
-  -F "topK=5"
-```
+   - 单页应用路由分派（智能助手 / 知选商城）
 
 ## 部署与扩展
 
@@ -390,6 +498,7 @@ A: 不可以。系统需要：
 - 网络连接到 DashScope / OpenAI API
 - 连接到 Milvus 向量数据库
 - 连接到 Redis 实例
+- 连接到 MySQL 数据库
 
 ## 文件组织建议
 
@@ -404,6 +513,11 @@ docs/
     04-clothes-search.png        # 衣服搜索结果
     05-similar-image-search.png  # 相似图片搜索
     06-chat-recommendation.png   # 聊天推荐效果
+    mall-homepage.png            # 知选商城首页
+    mall-product-detail.png      # 商品详情页
+    mall-checkout.png            # 订单确认页
+    mall-order-created.png       # 订单创建成功
+    mall-payment-success.png     # 模拟支付成功
   README-Screenshots.md          # 截图说明文档
 ```
 
