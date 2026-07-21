@@ -1,6 +1,6 @@
 # FirstRag
 
-FirstRag 是一个基于 Spring Boot 4、Spring AI 2 和 Milvus 的 RAG（检索增强生成）示例项目，旨在演示如何将大模型、向量数据库和业务数据结合起来，构建可扩展的智能问答与商品搜索体验。
+FirstRag 是一个基于 Spring Boot 4、Spring AI 2 和 Milvus 的 RAG（检索增强生成）示例项目，融合了多模态检索、模型路由熔断、分布式限流、电商交易闭环和 Ragas 评估体系，演示如何将大模型、向量数据库和业务数据结合起来，构建可扩展的智能问答与商品搜索体验。
 
 <img width="1890" height="892" alt="image" src="https://github.com/user-attachments/assets/6b00d2fc-d707-4568-8695-9528215148d0" />
 
@@ -10,44 +10,75 @@ FirstRag 是一个基于 Spring Boot 4、Spring AI 2 和 Milvus 的 RAG（检索
 
 - 基于 Spring AI 的聊天接口，支持接入 DashScope / OpenAI 兼容模型
 - 文本 RAG：将文档向量化后写入 Milvus，并通过检索生成回答
-- 图片 RAG：支持商品图片向量检索与相似图搜索
-- 模型路由与降级：支持多模型候选路由，提升可用性与容错能力
-- 分布式限流：基于 Redis 的队列式限流能力
-- **知选商城**：完整的电商前端与后端，包含商品浏览、购物车、订单与模拟支付
-- 前端交互界面：使用 React + Vite 提供可视化访问入口
+- 图片 RAG：基于 DashScope 多模态 Embedding 的商品图片向量检索与相似图搜索
+- Markdown 知识入库：解析本地 Markdown 文件，按文档类型（说明书/品牌故事/活动规则）分类写入向量库
+- RAG 查询预处理：意图识别、查询改写与元数据过滤表达式生成
+- 模型路由与熔断降级：多候选端点优先级路由，三态熔断器（CLOSED/OPEN/HALF_OPEN）自动 failover，支持运行时故障注入调试
+- 分布式队列限流：基于 Redis ZSET + Lua 原子脚本 + Redisson Pub/Sub 的并发控制与请求节流
+- 知选商城：完整的电商前端与后端，包含商品浏览、SKU 选择、购物车、订单与模拟支付
+- 商品搜索索引同步（Outbox 模式）：商品变更写入 Outbox 事件表，定时任务异步同步到 Milvus 搜索索引，支持重试退避与 SHA-256 版本对账
+- 商品推荐引擎：融合 RAG 语义分数与 MySQL 词法匹配，支持预算与分类过滤
+- 检索结果重排：基于 RerankModel 对召回结果进行二次排序
+- Ragas 评估体系：对 RAG 效果进行多轮评估，覆盖 faithfulness / answer_relevancy / context_precision / context_recall
+- Spring Security 会话认证：BCrypt 密码加密、Cookie CSRF 保护、接口级权限控制
+- 前端交互界面：使用 React + Vite 提供可视化访问入口（智能助手 + 知选商城）
 
 ## 主要技术栈
+
+### 后端
 
 - Java 21
 - Maven
 - Spring Boot 4.1.0
-- Spring AI 2.0.0
-- Spring Security + Session
+- Spring AI 2.0.0（OpenAI 兼容模型 + Milvus 向量存储）
+- Spring Security + Session（会话认证、CSRF、BCrypt）
 - Spring Data JPA (Hibernate)
+- Spring Data Redis
 - MySQL 8
 - Milvus 2.6
-- Redis
-- React + Vite + TypeScript
-- DashScope SDK
+- Redisson 3.52.0（分布式队列限流的 Pub/Sub 与同步原语）
+- DashScope SDK Java 2.22.24（多模态对话、文本 Embedding、多模态 Embedding）
+
+### 前端
+
+- React + Vite 5 + TypeScript
+- lucide-react（图标库）
+
+### 评估
+
+- Python + Ragas（RAG 效果评估）
+
+### 测试
+
+- JUnit 5 + Mockito
+- H2（测试内存数据库）
 
 ## 项目结构
 
 ```text
 src/main/java/com/example/ragdemo
-  config/           # 配置类、模型路由与 AI 配置
-  controller/       # REST Controller，暴露聊天、RAG、图片检索接口
-  service/          # 业务服务层，封装大模型调用与向量检索逻辑
-  routing/          # 模型路由与失败降级逻辑
-  ratelimit/        # 分布式限流实现
-  rerank/           # 检索结果重排模型
-  store/            # 知选商城：商品、购物车、订单、用户、地址
-  dto/              # 请求与响应 DTO
-  exception/        # 全局异常处理
-frontend/          # React + Vite 前端项目（智能助手 + 知选商城）
-docs/              # 项目说明文档与截图
-doc/               # 设计文档（高层设计、详细设计、提案）
-text/              # 示例 Markdown 知识库文档
-eval/              # Ragas 评估数据集与结果
+  config/             # AI 配置、模型路由装配、图片 RAG 配置、搜索索引配置
+  controller/         # REST Controller：聊天、RAG、图片检索、商城、健康检查、模型调试
+  service/            # 业务服务层：RAG 引擎、商城对话编排、图片 RAG、Markdown 入库、查询预处理、商品推荐、搜索索引同步
+  routing/            # 模型路由与熔断：ModelRouter、CircuitBreaker、故障注入、路由追踪
+  ratelimit/          # 分布式队列限流：ZSET 队列 + Lua 脚本 + Redisson Pub/Sub + REST 演示端点
+    config/           # 限流配置与 Redisson 客户端
+    core/             # 限流核心：队列、许可证、状态机、信号总线
+    support/          # Redis Lua Repository 与 Redisson 信号总线实现
+    exception/        # 限流异常（超时、取消、不可用）
+    dto/              # 限流请求与响应 DTO
+    controller/       # 限流演示端点
+  rerank/             # 检索结果重排模型（接口 + 透传实现）
+  dashscope/          # DashScope 原生适配：多模态对话、文本 Embedding、多模态 Embedding
+  store/              # 知选商城：商品、SKU、购物车、订单、用户、地址、安全配置、Outbox 事件
+  dto/                # 请求与响应 DTO（聊天、RAG、商城对话、图片 RAG、商品推荐）
+  exception/          # 全局异常处理（@RestControllerAdvice）
+frontend/             # React + Vite 前端项目（智能助手 + 知选商城）
+docs/                 # 项目说明文档与截图
+doc/                  # 设计文档（高层设计、详细设计、提案、Prompt 设计）
+text/                 # 示例 Markdown 知识库（说明书、品牌故事、活动规则）
+eval/                 # Ragas 评估脚本、数据集与历史结果
+volumes/              # Milvus 持久化数据（Docker 卷）
 ```
 
 ## 环境依赖
@@ -57,9 +88,11 @@ eval/              # Ragas 评估数据集与结果
 - JDK 21
 - Maven 3.8+（推荐 3.9+）
 - MySQL 8（商城数据持久化）
-- Redis（用于限流与 Session）
-- Milvus 2.6（用于向量检索）
+- Redis（分布式限流与 Session 共用）
+- Milvus 2.6（向量检索，依赖 etcd 作为元数据存储）
 - DashScope / OpenAI 兼容模型 API Key
+- Node.js 18+ 与 npm（前端构建与运行）
+- Python 3.10+（可选，用于 Ragas 评估）
 
 ## 配置说明
 
