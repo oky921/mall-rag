@@ -1,9 +1,10 @@
 # FirstRag-mall
 
 FirstRag-mall 是一个基于 Spring Boot 4、Spring AI 2 和 Milvus 的 RAG（检索增强生成）示例项目，融合了多模态检索、模型路由熔断、分布式限流、电商交易闭环和 Ragas 评估体系，演示如何将大模型、向量数据库和业务数据结合起来，构建可扩展的智能问答与商品搜索体验。
-RAG问答界面
+
+## RAG问答界面
 <img width="1890" height="892" alt="image" src="https://github.com/user-attachments/assets/6b00d2fc-d707-4568-8695-9528215148d0" />
-商城购物界面
+## 商城购物界面
 <img width="1907" height="927" alt="屏幕截图 2026-07-20 225052" src="https://github.com/user-attachments/assets/f1bce0ce-5a0d-4799-bc8b-db33c4854a19" />
 
 ## 项目简介
