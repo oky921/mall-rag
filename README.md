@@ -4,6 +4,7 @@ FirstRag-mall 是一个基于 Spring Boot 4、Spring AI 2 和 Milvus 的 RAG（�
 
 ## RAG问答界面
 <img width="1890" height="892" alt="image" src="https://github.com/user-attachments/assets/6b00d2fc-d707-4568-8695-9528215148d0" />
+
 ## 商城购物界面
 <img width="1907" height="927" alt="屏幕截图 2026-07-20 225052" src="https://github.com/user-attachments/assets/f1bce0ce-5a0d-4799-bc8b-db33c4854a19" />
 
