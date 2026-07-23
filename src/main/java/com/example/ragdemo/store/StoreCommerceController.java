@@ -48,6 +48,12 @@ public class StoreCommerceController {
         return orderService.create(request);
     }
 
+    @PostMapping("/checkout/preview")
+    public StoreApiModels.CheckoutPreviewResponse preview(
+            @RequestBody StoreApiModels.CheckoutPreviewRequest request) {
+        return orderService.preview(request);
+    }
+
     @GetMapping("/orders/{orderId}")
     public StoreApiModels.OrderResponse order(@PathVariable Long orderId) {
         return orderService.find(orderId);

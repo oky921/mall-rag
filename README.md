@@ -15,7 +15,7 @@ FirstRag 是一个基于 Spring Boot 4、Spring AI 2 和 Milvus 的 RAG（检索
 - RAG 查询预处理：意图识别、查询改写与元数据过滤表达式生成
 - 模型路由与熔断降级：多候选端点优先级路由，三态熔断器（CLOSED/OPEN/HALF_OPEN）自动 failover，支持运行时故障注入调试
 - 分布式队列限流：基于 Redis ZSET + Lua 原子脚本 + Redisson Pub/Sub 的并发控制与请求节流
-- 知选商城：完整的电商前端与后端，包含商品浏览、SKU 选择、购物车、订单与模拟支付
+- 知选商城：完整的电商前端与后端，包含商品浏览、SKU 选择、购物车、优惠券、订单与模拟支付
 - 商品搜索索引同步（Outbox 模式）：商品变更写入 Outbox 事件表，定时任务异步同步到 Milvus 搜索索引，支持重试退避与 SHA-256 版本对账
 - 商品推荐引擎：融合 RAG 语义分数与 MySQL 词法匹配，支持预算与分类过滤
 - 检索结果重排：基于 RerankModel 对召回结果进行二次排序
@@ -70,7 +70,7 @@ src/main/java/com/example/ragdemo
     controller/       # 限流演示端点
   rerank/             # 检索结果重排模型（接口 + 透传实现）
   dashscope/          # DashScope 原生适配：多模态对话、文本 Embedding、多模态 Embedding
-  store/              # 知选商城：商品、SKU、购物车、订单、用户、地址、安全配置、Outbox 事件
+  store/              # 知选商城：商品、SKU、购物车、优惠券、订单、用户、地址、安全配置、Outbox 事件
   dto/                # 请求与响应 DTO（聊天、RAG、商城对话、图片 RAG、商品推荐）
   exception/          # 全局异常处理（@RestControllerAdvice）
 frontend/             # React + Vite 前端项目（智能助手 + 知选商城）
@@ -88,7 +88,8 @@ volumes/              # Milvus 持久化数据（Docker 卷）
 - JDK 21
 - Maven 3.8+（推荐 3.9+）
 - MySQL 8（商城数据持久化）
-- Redis（分布式限流与 Session 共用）
+- Redis（分布式限流、Session 与优惠券库存缓存共用）
+- RabbitMQ 3.8+（优惠券领取异步落库）
 - Milvus 2.6（向量检索，依赖 etcd 作为元数据存储）
 - DashScope / OpenAI 兼容模型 API Key
 - Node.js 18+ 与 npm（前端构建与运行）
@@ -112,6 +113,10 @@ $env:APP_REDIS_URL="redis://localhost:6379"
 $env:APP_MYSQL_URL="jdbc:mysql://localhost:3306/first_rag_mall?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai"
 $env:APP_MYSQL_USERNAME="root"
 $env:APP_MYSQL_PASSWORD="123456"
+$env:APP_RABBITMQ_HOST="localhost"
+$env:APP_RABBITMQ_PORT="5672"
+$env:APP_RABBITMQ_USERNAME="guest"
+$env:APP_RABBITMQ_PASSWORD="guest"
 ```
 
 ## 启动方式
@@ -143,7 +148,7 @@ npm run dev
 
 ## 知选商城
 
-项目内置了完整的电商模块「知选商城」，与智能助手共享同一套后端服务。商城数据通过 JPA 持久化到 MySQL，支持商品浏览、规格选择、购物车、订单与模拟支付全流程。
+项目内置了完整的电商模块「知选商城」，与智能助手共享同一套后端服务。商城数据通过 JPA 持久化到 MySQL，支持商品浏览、规格选择、购物车、优惠券、订单与模拟支付全流程。
 
 ### 商城首页
 
@@ -171,6 +176,33 @@ npm run dev
 
 ![模拟支付成功](docs/screenshots/mall-payment-success.png)
 
+### 优惠券与优惠计算
+
+商城支持多种类型的优惠券，包括满减券、折扣券、品类券和指定商品券。用户可在商城首页通过「限时抢券」入口进入今日抢券中心，领取限量发放的优惠券；也支持在结算页输入优惠券编码直接领取。
+
+结算时系统会根据当前购物车商品自动计算可用优惠券，并推荐最优叠加组合，勾选后实时刷新优惠金额与应付金额。
+
+优惠券类型：
+
+- `FULL_REDUCTION`：满减券，如满 200 减 30
+- `DISCOUNT`：全场折扣券，如全场 95 折
+- `CATEGORY_DISCOUNT`：品类折扣券，如数码家电 88 折
+- `PRODUCT_FIXED`：指定商品立减券，如指定手机立减 100
+
+叠加与推荐规则：
+
+- 仅标记为可叠加的优惠券支持组合使用
+- 系统通过策略模式并行计算每张券的优惠金额，并在组合空间中搜索应付金额最小的方案
+- 限时抢券使用 Redis + Lua 脚本原子扣减库存，并通过 RabbitMQ 异步落库，保证高并发下库存准确
+
+![限时抢券入口](docs/screenshots/mall-coupon-entry.png)
+
+![今日抢券中心](docs/screenshots/mall-coupon-center.png)
+
+![结算页优惠券未使用](docs/screenshots/mall-coupon-checkout-before.png)
+
+![结算页优惠券已使用](docs/screenshots/mall-coupon-checkout-after.png)
+
 ### 用户与订单管理
 
 - **用户认证**：基于 Spring Security Session，支持注册、登录、登出，密码使用 BCrypt 加密
@@ -193,6 +225,8 @@ store/
   StoreOrderService        # 订单业务（下单、支付、取消）
   StoreUserService         # 用户业务
   StoreAddressService      # 地址业务
+  StoreCouponService / CouponReceiveService      # 优惠券业务与领取
+  StoreCouponRecommendationService               # 最优优惠券组合推荐
   StoreDataInitializer     # 演示数据初始化
   StoreProductCatalogService / StoreProductSearchIndexService  # 搜索索引与同步
 ```
@@ -315,6 +349,9 @@ Embedding 模型候选：
 | `StoreOrder` / `StoreOrderItem` | 订单与订单明细快照 |
 | `StoreUser` | 商城用户（用户名、昵称、密码哈希） |
 | `StoreAddress` | 收货地址（收件人、电话、省市区与详细地址） |
+| `StoreCoupon` | 优惠券定义（类型、门槛、面额、有效期、库存） |
+| `StoreUserCoupon` | 用户已领取优惠券（状态：未使用 / 已使用 / 已过期） |
+| `StoreOrderCoupon` | 订单使用的优惠券快照 |
 
 ### 6. 用户认证与安全
 
@@ -389,6 +426,7 @@ Embedding 模型候选：
 3. **客服助手** - 为用户快速查找相关商品和回答常见问题
 4. **库存管理** - 支持文本和图片的库存检索
 5. **演示商城** - 可作为具备完整购物流程的示例电商平台
+6. **优惠券营销** - 支持满减、折扣、品类券、秒杀抢券等促销玩法
 
 ## 主要接口示例
 
@@ -436,6 +474,24 @@ curl -X POST http://localhost:8080/api/mall/images/search \
 curl "http://localhost:8080/api/store/products?category=数码家电"
 ```
 
+### 查询我的优惠券
+
+```bash
+curl http://localhost:8080/api/store/coupons
+```
+
+### 领取优惠券
+
+```bash
+curl -X POST http://localhost:8080/api/store/coupons/SUMMER30/claim
+```
+
+### 查询可抢优惠券
+
+```bash
+curl http://localhost:8080/api/coupon/active
+```
+
 ### 商城下单
 
 ```bash
@@ -468,15 +524,20 @@ curl -X POST http://localhost:8080/api/store/orders/1/pay
    - 基于队列和 Redis 的并发控制与请求节流
 
 5. **Spring Data JPA 实体层**
-   - 商品、SKU、购物车、订单、用户、地址全实体映射
+   - 商品、SKU、购物车、订单、用户、地址、优惠券全实体映射
    - 下单与支付使用悲观锁保证并发安全
 
-6. **Spring Security 会话认证**
+6. **优惠券与优惠计算**
+   - 支持满减、折扣、品类券、指定商品券等多种券类型
+   - 策略模式并行计算 + 组合搜索推荐最优优惠方案
+   - 限时抢券使用 Redis + Lua 原子扣库存，RabbitMQ 异步落库
+
+7. **Spring Security 会话认证**
    - Session + Cookie 认证机制
    - CSRF Token 保护写接口
    - 接口级权限控制
 
-7. **前端可视化支持**
+8. **前端可视化支持**
    - 基于 React + Vite 提供交互式体验
    - 单页应用路由分派（智能助手 / 知选商城）
 
@@ -546,12 +607,16 @@ docs/
     04-clothes-search.png        # 衣服搜索结果
     05-similar-image-search.png  # 相似图片搜索
     06-chat-recommendation.png   # 聊天推荐效果
-    mall-homepage.png            # 知选商城首页
-    mall-product-detail.png      # 商品详情页
-    mall-checkout.png            # 订单确认页
-    mall-order-created.png       # 订单创建成功
-    mall-payment-success.png     # 模拟支付成功
-  README-Screenshots.md          # 截图说明文档
+    mall-homepage.png                   # 知选商城首页
+    mall-product-detail.png             # 商品详情页
+    mall-checkout.png                   # 订单确认页
+    mall-order-created.png              # 订单创建成功
+    mall-payment-success.png            # 模拟支付成功
+    mall-coupon-entry.png               # 限时抢券入口
+    mall-coupon-center.png              # 今日抢券中心
+    mall-coupon-checkout-before.png     # 结算页优惠券未使用
+    mall-coupon-checkout-after.png      # 结算页优惠券已使用
+  README-Screenshots.md                 # 截图说明文档
 ```
 
 

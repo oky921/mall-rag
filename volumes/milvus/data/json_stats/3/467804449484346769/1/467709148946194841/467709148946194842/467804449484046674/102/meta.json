@@ -1,1 +1,0 @@
-{"layout_type_map":{"/char_count_INT64":"TYPED","/chunk_index_INT64":"TYPED","/chunk_strategy_STRING":"TYPED","/doc_type_STRING":"TYPED","/document_summary_STRING":"TYPED","/source_STRING":"TYPED","/source_file_STRING":"TYPED","/summary_STRING":"TYPED","/title_STRING":"TYPED","/topic_STRING":"TYPED","/type_STRING":"TYPED"},"num_rows":32,"num_shredding_columns":11,"version":"1"}

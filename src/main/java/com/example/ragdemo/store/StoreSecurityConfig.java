@@ -49,7 +49,7 @@ public class StoreSecurityConfig {
                         .csrfTokenRepository(csrfRepository)
                         .csrfTokenRequestHandler(csrfHandler)
                         // Public conversational search has no authenticated browser state to protect.
-                        .ignoringRequestMatchers("/api/mall/chat", "/api/mall/chat/**"))
+                        .ignoringRequestMatchers("/api/mall/chat", "/api/mall/chat/**", "/api/coupon/**"))
                 .requestCache(cache -> cache.disable())
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())

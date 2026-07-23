@@ -7,6 +7,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.time.Instant;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,15 +24,20 @@ public class StoreOrderService {
     private final StoreSkuRepository skuRepository;
     private final CurrentStoreUser currentUser;
     private final StoreAddressService addressService;
+    private final StoreUserCouponRepository userCouponRepository;
+    private final StoreCouponRecommendationService couponRecommendationService;
 
     public StoreOrderService(StoreOrderRepository orderRepository, StoreCartItemRepository cartRepository,
             StoreSkuRepository skuRepository, CurrentStoreUser currentUser,
-            StoreAddressService addressService) {
+            StoreAddressService addressService, StoreUserCouponRepository userCouponRepository,
+            StoreCouponRecommendationService couponRecommendationService) {
         this.orderRepository = orderRepository;
         this.cartRepository = cartRepository;
         this.skuRepository = skuRepository;
         this.currentUser = currentUser;
         this.addressService = addressService;
+        this.userCouponRepository = userCouponRepository;
+        this.couponRecommendationService = couponRecommendationService;
     }
 
     @Transactional
@@ -51,6 +57,14 @@ public class StoreOrderService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "部分SKU已不存在");
         }
 
+        StoreCouponContext couponContext = couponContext(cartItems, lockedSkus);
+        List<StoreUserCoupon> availableCoupons = userCouponRepository == null
+                || request.userCouponIds() == null || request.userCouponIds().isEmpty()
+                        ? List.of()
+                        : userCouponRepository.findOwnedByIdsForUpdate(currentUser.userId(), request.userCouponIds());
+        validateCoupons(availableCoupons, request.userCouponIds());
+        StoreCouponPlan couponPlan = recommend(couponContext, availableCoupons);
+
         StoreOrder order = new StoreOrder(nextOrderNo(), currentUser.userId(), address.getReceiverName(),
                 address.getReceiverPhone(), address.fullAddress());
         for (StoreCartItem cartItem : cartItems) {
@@ -66,9 +80,73 @@ public class StoreOrderService {
             sku.decreaseStock(cartItem.getQuantity());
         }
 
+        for (StoreCouponCandidate candidate : couponPlan.candidates()) {
+            candidate.userCoupon().use();
+            order.addCoupon(new StoreOrderCoupon(candidate.userCoupon(), candidate.discountAmount()));
+        }
+
         StoreOrder saved = orderRepository.save(order);
         cartRepository.deleteAll(cartItems);
         return StoreApiModels.OrderResponse.from(saved);
+    }
+
+    public StoreApiModels.CheckoutPreviewResponse preview(StoreApiModels.CheckoutPreviewRequest request) {
+        validate(request);
+        List<Long> itemIds = List.copyOf(new LinkedHashSet<>(request.cartItemIds()));
+        List<StoreCartItem> cartItems = cartRepository.findByIdInAndUserId(itemIds, currentUser.userId());
+        if (cartItems.size() != itemIds.size()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "部分购物车项不存在或不属于当前用户");
+        }
+        List<Long> requestedCouponIds = request.userCouponIds() == null
+                ? List.of() : List.copyOf(new LinkedHashSet<>(request.userCouponIds()));
+        List<StoreUserCoupon> coupons = requestedCouponIds.isEmpty() ? List.of()
+                : userCouponRepository.findByUserIdAndIdIn(currentUser.userId(), requestedCouponIds);
+        validateCoupons(coupons, requestedCouponIds);
+        StoreCouponContext context = couponContext(cartItems, Map.of());
+        StoreCouponPlan plan = recommend(context, coupons);
+        List<StoreUserCoupon> allCoupons = userCouponRepository.findByUserIdAndStatus(
+                currentUser.userId(), StoreUserCoupon.UNUSED).stream().filter(this::couponUsable).toList();
+        StoreCouponPlan recommended = recommend(context, allCoupons);
+        return new StoreApiModels.CheckoutPreviewResponse(context.originalAmount(), plan.discountAmount(),
+                plan.payableAmount(), appliedCoupons(plan), appliedCoupons(recommended),
+                recommended.discountAmount(), recommended.payableAmount());
+    }
+
+    private List<StoreApiModels.AppliedCouponResponse> appliedCoupons(StoreCouponPlan plan) {
+        return plan.candidates().stream().map(c -> new StoreApiModels.AppliedCouponResponse(
+                c.userCoupon().getId(), c.userCoupon().getCoupon().getName(), c.discountAmount())).toList();
+    }
+
+    private StoreCouponPlan recommend(StoreCouponContext context, List<StoreUserCoupon> coupons) {
+        if (couponRecommendationService == null) {
+            return new StoreCouponPlan(List.of(), java.math.BigDecimal.ZERO, context.originalAmount());
+        }
+        return couponRecommendationService.recommend(context, coupons);
+    }
+
+    private StoreCouponContext couponContext(List<StoreCartItem> cartItems, Map<Long, StoreSku> lockedSkus) {
+        List<StoreCouponLine> lines = cartItems.stream().map(item -> {
+            StoreSku sku = lockedSkus.getOrDefault(item.getSku().getId(), item.getSku());
+            return new StoreCouponLine(sku.getProduct().getId(), sku.getProduct().getCategory(),
+                    sku.getPrice().multiply(java.math.BigDecimal.valueOf(item.getQuantity())));
+        }).toList();
+        return new StoreCouponContext(lines, lines.stream().map(StoreCouponLine::amount)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add));
+    }
+
+    private void validateCoupons(List<StoreUserCoupon> coupons, List<Long> requestedIds) {
+        if (requestedIds != null && !requestedIds.isEmpty()
+                && (coupons.size() != new LinkedHashSet<>(requestedIds).size()
+                || coupons.stream().anyMatch(c -> !couponUsable(c)))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "优惠券不可用或不属于当前用户");
+        }
+    }
+
+    private boolean couponUsable(StoreUserCoupon userCoupon) {
+        StoreCoupon coupon = userCoupon.getCoupon();
+        Instant now = Instant.now();
+        return StoreUserCoupon.UNUSED.equals(userCoupon.getStatus()) && Boolean.TRUE.equals(coupon.getEnabled())
+                && !now.isBefore(coupon.getValidFrom()) && !now.isAfter(coupon.getValidTo());
     }
 
     public StoreApiModels.OrderResponse find(Long orderId) {
@@ -140,6 +218,15 @@ public class StoreOrderService {
     }
 
     private void validate(StoreApiModels.CreateOrderRequest request) {
+        if (request == null || request.cartItemIds() == null || request.cartItemIds().isEmpty()) {
+            throw badRequest("请选择要结算的购物车商品");
+        }
+        if (request.addressId() == null) {
+            throw badRequest("请选择收货地址");
+        }
+    }
+
+    private void validate(StoreApiModels.CheckoutPreviewRequest request) {
         if (request == null || request.cartItemIds() == null || request.cartItemIds().isEmpty()) {
             throw badRequest("请选择要结算的购物车商品");
         }

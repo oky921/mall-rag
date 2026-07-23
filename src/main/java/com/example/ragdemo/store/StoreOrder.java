@@ -40,6 +40,12 @@ public class StoreOrder {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal totalAmount;
 
+    @Column(nullable = false, precision = 12, scale = 2, columnDefinition = "decimal(12,2) default 0.00")
+    private BigDecimal discountAmount;
+
+    @Column(nullable = false, precision = 12, scale = 2, columnDefinition = "decimal(12,2) default 0.00")
+    private BigDecimal payableAmount;
+
     @Column(nullable = false, length = 40)
     private String receiverName;
 
@@ -65,6 +71,9 @@ public class StoreOrder {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<StoreOrderItem> items = new ArrayList<>();
 
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<StoreOrderCoupon> coupons = new ArrayList<>();
+
     protected StoreOrder() {
     }
 
@@ -74,6 +83,8 @@ public class StoreOrder {
         this.userId = userId;
         this.status = STATUS_CREATED;
         this.totalAmount = BigDecimal.ZERO;
+        this.discountAmount = BigDecimal.ZERO;
+        this.payableAmount = BigDecimal.ZERO;
         this.receiverName = receiverName;
         this.receiverPhone = receiverPhone;
         this.receiverAddress = receiverAddress;
@@ -85,6 +96,15 @@ public class StoreOrder {
         items.add(item);
         item.attachTo(this);
         totalAmount = totalAmount.add(item.getSubtotal());
+        payableAmount = totalAmount.subtract(discountAmount);
+        updatedAt = Instant.now();
+    }
+
+    public void addCoupon(StoreOrderCoupon coupon) {
+        coupons.add(coupon);
+        coupon.attachTo(this);
+        discountAmount = discountAmount.add(coupon.getDiscountAmount());
+        payableAmount = totalAmount.subtract(discountAmount).max(BigDecimal.ZERO);
         updatedAt = Instant.now();
     }
 
@@ -119,6 +139,8 @@ public class StoreOrder {
     public Long getUserId() { return userId; }
     public String getStatus() { return status; }
     public BigDecimal getTotalAmount() { return totalAmount; }
+    public BigDecimal getDiscountAmount() { return discountAmount; }
+    public BigDecimal getPayableAmount() { return payableAmount; }
     public String getReceiverName() { return receiverName; }
     public String getReceiverPhone() { return receiverPhone; }
     public String getReceiverAddress() { return receiverAddress; }
@@ -128,4 +150,5 @@ public class StoreOrder {
     public Instant getPaidAt() { return paidAt; }
     public Instant getCancelledAt() { return cancelledAt; }
     public List<StoreOrderItem> getItems() { return Collections.unmodifiableList(items); }
+    public List<StoreOrderCoupon> getCoupons() { return Collections.unmodifiableList(coupons); }
 }

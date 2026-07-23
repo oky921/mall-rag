@@ -1,1 +1,8 @@
 target/
+volumes/
+.workbuddy/
+*.log
+backend-error.log
+backend-rag-error.log
+backend-rag.log
+backend.log

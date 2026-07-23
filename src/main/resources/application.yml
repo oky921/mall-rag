@@ -29,6 +29,16 @@ spring:
     redis:
       url: ${APP_REDIS_URL:${APP_RATELIMIT_REDIS_ADDRESS:redis://localhost:6379}}
       database: ${APP_REDIS_DATABASE:${APP_RATELIMIT_REDIS_DATABASE:0}}
+  rabbitmq:
+    host: ${APP_RABBITMQ_HOST:localhost}
+    port: ${APP_RABBITMQ_PORT:5672}
+    username: ${APP_RABBITMQ_USERNAME:guest}
+    password: ${APP_RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        acknowledge-mode: auto
+        default-requeue-rejected: false
+        prefetch: 50
   ai:
     model:
       chat: openai

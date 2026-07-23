@@ -54,8 +54,29 @@ public final class StoreApiModels {
             BigDecimal totalAmount) {
     }
 
-    public record CreateOrderRequest(List<Long> cartItemIds, Long addressId) {
+    public record CreateOrderRequest(List<Long> cartItemIds, Long addressId, List<Long> userCouponIds) {
+        public CreateOrderRequest(List<Long> cartItemIds, Long addressId) {
+            this(cartItemIds, addressId, List.of());
+        }
     }
+
+    public record CheckoutPreviewRequest(List<Long> cartItemIds, Long addressId,
+            List<Long> userCouponIds) {
+        public CheckoutPreviewRequest(List<Long> cartItemIds, Long addressId) {
+            this(cartItemIds, addressId, List.of());
+        }
+    }
+
+    public record CouponResponse(Long id, String code, String name, String type,
+            BigDecimal thresholdAmount, BigDecimal discountAmount, BigDecimal discountRate,
+            Boolean stackable, Long productId, String category, String status) { }
+
+    public record AppliedCouponResponse(Long userCouponId, String name, BigDecimal discountAmount) { }
+
+    public record CheckoutPreviewResponse(BigDecimal originalAmount, BigDecimal discountAmount,
+            BigDecimal payableAmount, List<AppliedCouponResponse> coupons,
+            List<AppliedCouponResponse> recommendedCoupons, BigDecimal recommendedDiscountAmount,
+            BigDecimal recommendedPayableAmount) { }
 
     public record CsrfResponse(String headerName, String token) {
     }
@@ -107,13 +128,17 @@ public final class StoreApiModels {
     }
 
     public record OrderResponse(Long id, String orderNo, String status, BigDecimal totalAmount,
+            BigDecimal discountAmount, BigDecimal payableAmount, List<AppliedCouponResponse> coupons,
             String receiverName, String receiverPhone, String receiverAddress, Instant createdAt,
             Instant updatedAt, String paymentNo, Instant paidAt, Instant cancelledAt,
             List<OrderItemResponse> items) {
 
         static OrderResponse from(StoreOrder order) {
             return new OrderResponse(order.getId(), order.getOrderNo(), order.getStatus(),
-                    order.getTotalAmount(), order.getReceiverName(), order.getReceiverPhone(),
+                    order.getTotalAmount(), order.getDiscountAmount(), order.getPayableAmount(),
+                    order.getCoupons().stream().map(c -> new AppliedCouponResponse(c.getUserCouponId(),
+                            c.getCouponName(), c.getDiscountAmount())).toList(),
+                    order.getReceiverName(), order.getReceiverPhone(),
                     order.getReceiverAddress(), order.getCreatedAt(), order.getUpdatedAt(),
                     order.getPaymentNo(), order.getPaidAt(), order.getCancelledAt(), order.getItems().stream()
                             .map(OrderItemResponse::from).toList());

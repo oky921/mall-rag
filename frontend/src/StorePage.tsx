@@ -24,7 +24,9 @@ import {
   Star,
   Store,
   Trash2,
+  TicketPercent,
   User,
+  Zap,
   X
 } from 'lucide-react';
 
@@ -78,6 +80,48 @@ type CartItem = {
 
 type CartResponse = { items: CartItem[]; totalQuantity: number; totalAmount: number };
 
+type Coupon = {
+  id: number;
+  code: string;
+  name: string;
+  type: 'FULL_REDUCTION' | 'DISCOUNT' | 'CATEGORY_DISCOUNT' | 'PRODUCT_FIXED';
+  thresholdAmount?: number | null;
+  discountAmount?: number | null;
+  discountRate?: number | null;
+  stackable: boolean;
+  productId?: number | null;
+  category?: string | null;
+  status: string;
+};
+
+type CampaignCoupon = {
+  id: number;
+  name: string;
+  code: string;
+  type: 'FULL_REDUCTION' | 'DISCOUNT' | 'CATEGORY_DISCOUNT' | 'PRODUCT_FIXED';
+  stock: number | null;
+  total: number | null;
+  limitPerUser: number | null;
+  startTime: string;
+  endTime: string;
+  thresholdAmount?: number | null;
+  discountAmount?: number | null;
+  discountRate?: number | null;
+  productId?: number | null;
+  category?: string | null;
+};
+
+type AppliedCoupon = { userCouponId: number; name: string; discountAmount: number };
+type CheckoutPreview = {
+  originalAmount: number;
+  discountAmount: number;
+  payableAmount: number;
+  coupons: AppliedCoupon[];
+  recommendedCoupons: AppliedCoupon[];
+  recommendedDiscountAmount: number;
+  recommendedPayableAmount: number;
+};
+
 type UserProfile = {
   id: number;
   username: string;
@@ -119,6 +163,9 @@ type OrderResponse = {
   orderNo: string;
   status: string;
   totalAmount: number;
+  discountAmount?: number;
+  payableAmount?: number;
+  coupons?: AppliedCoupon[];
   receiverName: string;
   receiverPhone: string;
   receiverAddress: string;
@@ -318,7 +365,7 @@ export function StorePage() {
             setUser(profile); void loadCart();
           }} />
         : <>
-      {route.kind === 'list' && <CatalogPage navigate={navigate} />}
+      {route.kind === 'list' && <CatalogPage navigate={navigate} user={user} />}
       {route.kind === 'login' && <LoginPage navigate={navigate} onAuthenticated={(profile) => {
         setUser(profile); void loadCart();
       }} />}
@@ -421,7 +468,7 @@ function StoreHeader({ user, cartCount, navigate, onCart, onLogout }: {
   );
 }
 
-function CatalogPage({ navigate }: { navigate: (path: string) => void }) {
+function CatalogPage({ navigate, user }: { navigate: (path: string) => void; user: UserProfile | null }) {
   const initialSearch = new URLSearchParams(window.location.search).get('keyword')?.trim() || '';
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -430,6 +477,7 @@ function CatalogPage({ navigate }: { navigate: (path: string) => void }) {
   const [search, setSearch] = useState(initialSearch);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [couponOpen, setCouponOpen] = useState(false);
 
   async function load(nextCategory = category, nextSearch = search) {
     setLoading(true);
@@ -464,13 +512,18 @@ function CatalogPage({ navigate }: { navigate: (path: string) => void }) {
     void load(category, next);
   }
 
-  return (
+  return (<>
     <div className="store-content">
       <aside className="category-rail">
         <h2>商品分类</h2>
         <button className={!category ? 'active' : ''} type="button" onClick={() => selectCategory('')}><span>全部商品</span><strong>{categories.reduce((sum, item) => sum + item.count, 0)}</strong></button>
         {categories.map((item) => <button className={category === item.name ? 'active' : ''} type="button" key={item.name} onClick={() => selectCategory(item.name)}><span>{item.name}</span><strong>{item.count}</strong></button>)}
         <div className="assistant-entry"><Bot size={20} /><strong>不知道怎么选？</strong><span>让智能助手理解需求并推荐商品</span><a href="/">去问问 <ChevronRight size={15} /></a></div>
+        <button className="coupon-entry" type="button" onClick={() => setCouponOpen(true)}>
+          <span className="coupon-entry-icon"><TicketPercent size={21} /></span>
+          <span><strong>限时抢券</strong><small>会员专享福利，数量有限</small></span>
+          <ChevronRight size={17} />
+        </button>
       </aside>
       <section className="store-main">
         <section className="store-promo">
@@ -489,6 +542,112 @@ function CatalogPage({ navigate }: { navigate: (path: string) => void }) {
             </article>
           ))}</div>}
       </section>
+    </div>
+    {couponOpen && <CouponCampaign user={user} navigate={navigate} onClose={() => setCouponOpen(false)} />}
+  </>);
+}
+
+function CouponCampaign({ user, navigate, onClose }: {
+  user: UserProfile | null;
+  navigate: (path: string) => void;
+  onClose: () => void;
+}) {
+  const [coupons, setCoupons] = useState<CampaignCoupon[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<number>();
+  const [result, setResult] = useState<Record<number, string>>({});
+
+  useEffect(() => {
+    void api<CampaignCoupon[]>('/api/coupon/active')
+      .then(setCoupons)
+      .catch(() => setCoupons([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [onClose]);
+
+  function valueLabel(coupon: CampaignCoupon) {
+    if ((coupon.type === 'DISCOUNT' || coupon.type === 'CATEGORY_DISCOUNT') && coupon.discountRate) {
+      return `${Number(coupon.discountRate * 10).toFixed(1).replace('.0', '')}折`;
+    }
+    return `¥${coupon.discountAmount ?? 0}`;
+  }
+
+  function conditionLabel(coupon: CampaignCoupon) {
+    const scope = coupon.category ? `仅${coupon.category}` : coupon.productId ? '指定商品可用' : '全场可用';
+    return `${coupon.thresholdAmount ? `满 ${Number(coupon.thresholdAmount)} 元` : '无门槛'} · ${scope}`;
+  }
+
+  async function claim(coupon: CampaignCoupon) {
+    if (!user) {
+      navigate('/mall/login?next=%2Fmall');
+      return;
+    }
+    if (busyId) return;
+    setBusyId(coupon.id);
+    setResult((current) => ({ ...current, [coupon.id]: '' }));
+    try {
+      const response = await api<{ message: string }>('/api/coupon/seckill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, couponId: coupon.id })
+      });
+      setResult((current) => ({ ...current, [coupon.id]: response.message || '已进入抢券队列' }));
+      setCoupons((current) => current.map((item) => item.id === coupon.id && item.stock
+        ? { ...item, stock: Math.max(0, item.stock - 1) } : item));
+    } catch (caught) {
+      setResult((current) => ({ ...current, [coupon.id]: caught instanceof Error ? caught.message : '抢券失败，请稍后重试' }));
+    } finally {
+      setBusyId(undefined);
+    }
+  }
+
+  if (!loading && coupons.length === 0) return null;
+
+  return (
+    <div className="coupon-campaign-layer" role="presentation" onMouseDown={(event) => {
+      if (event.target === event.currentTarget) onClose();
+    }}>
+    <section className="coupon-campaign" role="dialog" aria-modal="true" aria-labelledby="coupon-campaign-title">
+      <header className="coupon-campaign-heading">
+        <div className="coupon-campaign-title">
+          <span className="coupon-campaign-icon"><TicketPercent size={22} /></span>
+          <div><span>会员限时福利</span><h2 id="coupon-campaign-title">今日抢券中心</h2></div>
+        </div>
+        <div className="coupon-campaign-heading-actions">
+          <div className="coupon-campaign-time"><Clock3 size={15} /><span>数量有限，领完即止</span></div>
+          <button type="button" onClick={onClose} title="关闭抢券中心"><X size={19} /></button>
+        </div>
+      </header>
+      <div className="coupon-campaign-grid">
+        {loading ? <div className="coupon-campaign-loading"><Loader2 className="spin" size={22} />正在加载活动券</div>
+          : coupons.map((coupon) => {
+            const soldOut = (coupon.stock ?? 0) < 1;
+            const stock = coupon.stock ?? 0;
+            const total = Math.max(coupon.total ?? stock, 1);
+            const percent = Math.max(4, Math.min(100, (stock / total) * 100));
+            return (
+              <article className={`campaign-coupon ${soldOut ? 'sold-out' : ''}`} key={coupon.id}>
+                <div className="campaign-coupon-value"><strong>{valueLabel(coupon)}</strong><span>{conditionLabel(coupon)}</span></div>
+                <div className="campaign-coupon-info">
+                  <strong>{coupon.name}</strong>
+                  <span>每人限领 {coupon.limitPerUser ?? 1} 张 · 有效至 {new Date(coupon.endTime).toLocaleDateString('zh-CN')}</span>
+                  <div className="campaign-stock"><i style={{ width: `${percent}%` }} /><span>剩余 {stock} 张</span></div>
+                  {result[coupon.id] && <small>{result[coupon.id]}</small>}
+                </div>
+                <button type="button" disabled={soldOut || busyId === coupon.id} onClick={() => void claim(coupon)}>
+                  {busyId === coupon.id ? <Loader2 className="spin" size={17} /> : <Zap size={17} fill="currentColor" />}
+                  <span>{soldOut ? '已抢光' : user ? '立即抢券' : '登录后抢'}</span>
+                </button>
+              </article>
+            );
+          })}
+      </div>
+    </section>
     </div>
   );
 }
@@ -569,6 +728,12 @@ function CheckoutPage({ cart, cartLoading, navigate, onOrdered }: {
   const [selected, setSelected] = useState<number[]>([]);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [addressId, setAddressId] = useState<number>();
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [selectedCoupons, setSelectedCoupons] = useState<number[]>([]);
+  const [preview, setPreview] = useState<CheckoutPreview | null>(null);
+  const [claimCode, setClaimCode] = useState('');
+  const [claimBusy, setClaimBusy] = useState(false);
+  const [claimNotice, setClaimNotice] = useState('');
   const [addressesLoading, setAddressesLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -580,9 +745,43 @@ function CheckoutPage({ cart, cartLoading, navigate, onOrdered }: {
       setAddressId(items.find((item) => item.defaultAddress)?.id || items[0]?.id);
     }).catch((caught) => setError(caught instanceof Error ? caught.message : '地址加载失败'))
       .finally(() => setAddressesLoading(false));
+    void api<Coupon[]>('/api/store/coupons').then(setCoupons).catch(() => setCoupons([]));
   }, []);
   const selectedItems = cart.items.filter((item) => selected.includes(item.id));
   const total = selectedItems.reduce((sum, item) => sum + item.subtotal, 0);
+  const couponCounts = useMemo(() => coupons.reduce<Record<string, number>>((counts, coupon) => {
+    counts[coupon.code] = (counts[coupon.code] || 0) + 1;
+    return counts;
+  }, {}), [coupons]);
+
+  useEffect(() => {
+    if (!selected.length || !addressId) {
+      setPreview(null);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void api<CheckoutPreview>('/api/store/checkout/preview', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cartItemIds: selected, addressId, userCouponIds: selectedCoupons })
+      }).then((next) => {
+        setPreview(next);
+      }).catch(() => setPreview({ originalAmount: total, discountAmount: 0, payableAmount: total, coupons: [], recommendedCoupons: [], recommendedDiscountAmount: 0, recommendedPayableAmount: total }));
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [selected, selectedCoupons, addressId, total]);
+
+  async function claimCoupon() {
+    if (!claimCode.trim() || claimBusy) return;
+    setClaimBusy(true); setError(''); setClaimNotice('');
+    try {
+      const coupon = await api<Coupon>(`/api/store/coupons/${encodeURIComponent(claimCode.trim())}/claim`, { method: 'POST' });
+      setCoupons((current) => [...current, coupon]);
+      setClaimCode('');
+      setClaimNotice(`已领取：${coupon.name}`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '优惠券领取失败');
+    } finally { setClaimBusy(false); }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -591,7 +790,7 @@ function CheckoutPage({ cart, cartLoading, navigate, onOrdered }: {
     try {
       const order = await api<OrderResponse>('/api/store/orders', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cartItemIds: selected, addressId })
+        body: JSON.stringify({ cartItemIds: selected, addressId, userCouponIds: selectedCoupons })
       });
       onOrdered({ items: cart.items.filter((item) => !selected.includes(item.id)), totalQuantity: cart.items.filter((item) => !selected.includes(item.id)).reduce((sum, item) => sum + item.quantity, 0), totalAmount: cart.items.filter((item) => !selected.includes(item.id)).reduce((sum, item) => sum + item.subtotal, 0) });
       navigate(`/mall/orders/${order.id}`);
@@ -611,8 +810,15 @@ function CheckoutPage({ cart, cartLoading, navigate, onOrdered }: {
         <div className="checkout-main">
           <section className="checkout-section"><div className="section-title-row"><h2>收货地址</h2><button className="address-manage-link" type="button" onClick={() => navigate('/mall/account/addresses')}><MapPin size={15} />管理地址</button></div>{addressesLoading ? <div className="address-loading"><Loader2 className="spin" size={20} />正在读取地址</div> : addresses.length === 0 ? <div className="address-empty-inline"><MapPin size={24} /><span>还没有收货地址</span><button type="button" onClick={() => navigate('/mall/account/addresses')}>新增地址</button></div> : <div className="checkout-addresses">{addresses.map((address) => <label className={addressId === address.id ? 'selected' : ''} key={address.id}><input type="radio" name="address" checked={addressId === address.id} onChange={() => setAddressId(address.id)} /><span><strong>{address.receiverName} · {address.receiverPhone}</strong><small>{address.fullAddress}</small></span>{address.defaultAddress && <em>默认</em>}</label>)}</div>}</section>
           <section className="checkout-section"><div className="section-title-row"><h2>商品清单</h2><label><input type="checkbox" checked={selected.length === cart.items.length} onChange={(event) => setSelected(event.target.checked ? cart.items.map((item) => item.id) : [])} />全选</label></div><div className="checkout-items">{cart.items.map((item) => <label className="checkout-item" key={item.id}><input type="checkbox" checked={selected.includes(item.id)} onChange={(event) => setSelected((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} /><img src={item.imageUrl} alt="" /><span><strong>{item.productName}</strong><small>{specLabel(item.specValues)}</small></span><span>{currency(item.price)} × {item.quantity}</span><strong>{currency(item.subtotal)}</strong></label>)}</div></section>
+          <section className="checkout-section coupon-section">
+            <div className="section-title-row"><h2>优惠券</h2><span className="coupon-hint">共 {coupons.length} 张 · {Object.keys(couponCounts).length} 种，仅已勾选的参与计算</span></div>
+            <div className="coupon-claim"><input value={claimCode} onChange={(event) => setClaimCode(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void claimCoupon(); } }} placeholder="输入优惠券编码" aria-label="优惠券编码" /><button type="button" disabled={claimBusy || !claimCode.trim()} onClick={() => void claimCoupon()}>{claimBusy ? <Loader2 className="spin" size={15} /> : <Plus size={15} />}领取</button></div>
+            {claimNotice && <p className="coupon-success"><CircleCheck size={15} />{claimNotice}</p>}
+            {preview?.recommendedCoupons.length ? <div className="coupon-recommendation"><strong>最优方案推荐</strong><span>{preview.recommendedCoupons.map((coupon) => coupon.name).join(' + ')}</span><small>预计优惠 {currency(preview.recommendedDiscountAmount)}，勾选后应用</small></div> : null}
+            {coupons.length === 0 ? <p className="coupon-empty">暂无可用优惠券，可输入编码领取。</p> : <div className="coupon-list">{coupons.map((coupon) => <label className={selectedCoupons.includes(coupon.id) ? 'coupon-card selected' : 'coupon-card'} key={coupon.id}><input type="checkbox" checked={selectedCoupons.includes(coupon.id)} onChange={(event) => setSelectedCoupons((current) => event.target.checked ? [...current, coupon.id] : current.filter((id) => id !== coupon.id))} /><span className="coupon-value">{(coupon.type === 'DISCOUNT' || coupon.type === 'CATEGORY_DISCOUNT') ? `${Math.round((1 - (coupon.discountRate ?? 1)) * 100)}%` : `¥${coupon.discountAmount ?? 0}`}</span><span className="coupon-copy"><strong>{coupon.name} <em>×{couponCounts[coupon.code]}</em></strong><small>{coupon.category ? `仅${coupon.category}` : coupon.productId ? '指定商品可用' : '全场可用'} · {coupon.thresholdAmount ? `满 ${currency(coupon.thresholdAmount)} 可用` : '无门槛'} · {coupon.stackable ? '可叠加' : '不可叠加'}</small></span><Check size={16} /></label>)}</div>}
+          </section>
         </div>
-        <aside className="order-summary"><h2>订单汇总</h2><div><span>商品件数</span><strong>{selectedItems.reduce((sum, item) => sum + item.quantity, 0)} 件</strong></div><div><span>运费</span><strong>免运费</strong></div><div className="order-total"><span>应付金额</span><strong>{currency(total)}</strong></div>{error && <p className="inline-error">{error}</p>}<button type="submit" disabled={!selected.length || !addressId || busy}>{busy ? <Loader2 className="spin" size={18} /> : <Check size={18} />}提交模拟订单</button><small>本次下单不会发起真实支付</small></aside>
+        <aside className="order-summary"><h2>订单汇总</h2><div><span>商品件数</span><strong>{selectedItems.reduce((sum, item) => sum + item.quantity, 0)} 件</strong></div><div><span>商品原价</span><strong>{currency(preview?.originalAmount ?? total)}</strong></div><div><span>优惠金额</span><strong className="discount-value">-{currency(preview?.discountAmount ?? 0)}</strong></div><div><span>运费</span><strong>免运费</strong></div><div className="order-total"><span>应付金额</span><strong>{currency(preview?.payableAmount ?? total)}</strong></div>{preview?.coupons.length ? <div className="applied-coupons">{preview.coupons.map((coupon) => <span key={coupon.userCouponId}><Check size={13} />{coupon.name} · -{currency(coupon.discountAmount)}</span>)}</div> : null}{error && <p className="inline-error">{error}</p>}<button type="submit" disabled={!selected.length || !addressId || busy}>{busy ? <Loader2 className="spin" size={18} /> : <Check size={18} />}提交模拟订单</button><small>本次下单不会发起真实支付</small></aside>
       </div>
     </form>
   );
@@ -858,7 +1064,7 @@ function OrderCenterPage({ navigate }: { navigate: (path: string) => void }) {
             <header><div><span>{new Date(order.createdAt).toLocaleString('zh-CN')}</span><strong>{order.orderNo}</strong></div><span className={`order-status ${order.status.toLowerCase()}`}>{orderStatusLabel(order.status)}</span></header>
             <div className="order-card-body">
               <div className="order-product-stack">{order.items.slice(0, 3).map((item) => <img src={item.imageUrl} alt={item.productName} key={`${order.id}-${item.skuId}`} />)}<div><strong>{order.items[0]?.productName}</strong><span>{order.items.length > 1 ? `等 ${order.items.length} 种商品` : specLabel(order.items[0]?.specValues || {})}</span></div></div>
-              <div className="order-card-total"><span>订单金额</span><strong>{currency(order.totalAmount)}</strong></div>
+              <div className="order-card-total"><span>{(order.discountAmount ?? 0) > 0 ? '应付金额' : '订单金额'}</span><strong>{currency(order.payableAmount ?? order.totalAmount)}</strong></div>
             </div>
             <footer>
               <button className="order-detail-button" type="button" onClick={() => navigate(`/mall/orders/${order.id}`)}>查看详情</button>
@@ -899,9 +1105,9 @@ function OrderResultPage({ orderId, navigate }: { orderId: number; navigate: (pa
         <h1>{isPaid ? '模拟支付成功' : isCancelled ? '订单已取消' : '订单已经创建'}</h1>
         <p>{isPaid ? '支付流水已生成，本次不会产生真实扣款。' : isCancelled ? '订单商品库存已经恢复。' : '库存已锁定，请完成模拟支付或取消订单。'}</p>
       </div>
-      <div className="order-meta"><div><span>订单编号</span><strong>{order.orderNo}</strong></div><div><span>订单状态</span><strong>{orderStatusLabel(order.status)}</strong></div><div><span>{isPaid ? '支付时间' : isCancelled ? '取消时间' : '下单时间'}</span><strong>{new Date(order.paidAt || order.cancelledAt || order.createdAt).toLocaleString('zh-CN')}</strong></div><div><span>订单金额</span><strong>{currency(order.totalAmount)}</strong></div></div>
+      <div className="order-meta"><div><span>订单编号</span><strong>{order.orderNo}</strong></div><div><span>订单状态</span><strong>{orderStatusLabel(order.status)}</strong></div><div><span>{isPaid ? '支付时间' : isCancelled ? '取消时间' : '下单时间'}</span><strong>{new Date(order.paidAt || order.cancelledAt || order.createdAt).toLocaleString('zh-CN')}</strong></div><div><span>应付金额</span><strong>{currency(order.payableAmount ?? order.totalAmount)}</strong></div></div>
       {order.paymentNo && <div className="payment-reference"><span>模拟支付流水</span><code>{order.paymentNo}</code></div>}
-      <div className="order-result-layout"><section><h2>商品明细</h2>{order.items.map((item) => <article className="result-item" key={`${item.skuId}-${item.id}`}><img src={item.imageUrl} alt="" /><span><strong>{item.productName}</strong><small>{specLabel(item.specValues)}</small></span><span>{currency(item.price)} × {item.quantity}</span><strong>{currency(item.subtotal)}</strong></article>)}</section><aside><h2>收货信息</h2><strong>{order.receiverName} · {order.receiverPhone}</strong><p>{order.receiverAddress}</p></aside></div>
+      <div className="order-result-layout"><section><h2>商品明细</h2>{order.items.map((item) => <article className="result-item" key={`${item.skuId}-${item.id}`}><img src={item.imageUrl} alt="" /><span><strong>{item.productName}</strong><small>{specLabel(item.specValues)}</small></span><span>{currency(item.price)} × {item.quantity}</span><strong>{currency(item.subtotal)}</strong></article>)}{(order.discountAmount ?? 0) > 0 && <div className="order-discount-summary"><span>商品原价</span><strong>{currency(order.totalAmount)}</strong><span>优惠金额</span><strong>-{currency(order.discountAmount ?? 0)}</strong><span>应付金额</span><strong>{currency(order.payableAmount ?? order.totalAmount)}</strong></div>}{order.coupons?.map((coupon) => <div className="order-coupon-line" key={coupon.userCouponId}><Check size={14} />{coupon.name} · 优惠 {currency(coupon.discountAmount)}</div>)}</section><aside><h2>收货信息</h2><strong>{order.receiverName} · {order.receiverPhone}</strong><p>{order.receiverAddress}</p></aside></div>
       {error && <p className="inline-error">{error}</p>}
       <div className="order-result-actions"><button className="order-detail-button" type="button" onClick={() => navigate('/mall/orders')}><ReceiptText size={16} />查看全部订单</button>{order.status === 'CREATED' && <><button className="order-cancel-button" type="button" disabled={busy} onClick={() => void operate('cancel')}><RotateCcw size={16} />取消订单</button><button className="order-pay-button" type="button" disabled={busy} onClick={() => void operate('pay')}>{busy ? <Loader2 className="spin" size={16} /> : <CreditCard size={16} />}模拟支付</button></>}<button className="continue-button" type="button" onClick={() => navigate('/mall')}>继续购物 <ChevronRight size={17} /></button></div>
     </section>

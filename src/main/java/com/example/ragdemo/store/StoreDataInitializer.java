@@ -2,6 +2,8 @@ package com.example.ragdemo.store;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
@@ -13,12 +15,14 @@ public class StoreDataInitializer implements ApplicationRunner {
     private final StoreProductRepository repository;
     private final StoreProductCatalogService catalogService;
     private final StoreSkuRepository skuRepository;
+    private final StoreCouponRepository couponRepository;
 
     public StoreDataInitializer(StoreProductRepository repository, StoreSkuRepository skuRepository,
-            StoreProductCatalogService catalogService) {
+            StoreProductCatalogService catalogService, StoreCouponRepository couponRepository) {
         this.repository = repository;
         this.skuRepository = skuRepository;
         this.catalogService = catalogService;
+        this.couponRepository = couponRepository;
     }
 
     @Override
@@ -40,6 +44,25 @@ public class StoreDataInitializer implements ApplicationRunner {
         repository.findAll().stream()
                 .filter(product -> !skuRepository.existsByProductId(product.getId()))
                 .forEach(product -> skuRepository.saveAll(skusFor(product)));
+
+        Instant from = Instant.now().minus(1, ChronoUnit.MINUTES);
+        Instant to = Instant.now().plus(365, ChronoUnit.DAYS);
+        StoreProduct phone = repository.findByCode("DIG-1001").orElse(null);
+        ensureCoupon(new StoreCoupon("WELCOME-30", "满 200 减 30", StoreCoupon.Type.FULL_REDUCTION,
+                new BigDecimal("200"), new BigDecimal("30"), null, true, null, null, from, to));
+        ensureCoupon(new StoreCoupon("WELCOME-95", "全场 95 折", StoreCoupon.Type.DISCOUNT,
+                new BigDecimal("100"), null, new BigDecimal("0.9500"), true, null, null, from, to));
+        ensureCoupon(new StoreCoupon("DIGITAL-88", "数码家电 88 折", StoreCoupon.Type.CATEGORY_DISCOUNT,
+                new BigDecimal("300"), null, new BigDecimal("0.8800"), true, null, "数码家电", from, to));
+        ensureCoupon(new StoreCoupon("PHONE-100", "指定手机立减 100", StoreCoupon.Type.PRODUCT_FIXED,
+                new BigDecimal("1000"), new BigDecimal("100"), null, false,
+                phone == null ? null : phone.getId(), null, from, to));
+    }
+
+    private void ensureCoupon(StoreCoupon coupon) {
+        if (couponRepository.findByCode(coupon.getCode()).isEmpty()) {
+            couponRepository.save(coupon);
+        }
     }
 
     private StoreProduct product(String code, String name, String subtitle, String description, String category,
